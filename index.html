@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>領収書メーカー</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans',sans-serif;background:#f0ece3;color:#1a1a1a}
+#app{max-width:500px;margin:0 auto;min-height:100vh}
+.hdr{background:#1a1a1a;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:9}
+.hdr h1{color:#f5f0e8;font-size:16px;font-weight:700;letter-spacing:.2em}
+.hdr small{color:#666;font-size:9px;display:block}
+#btn-print{background:#c0392b;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:500;cursor:pointer}
+.main{padding:16px 12px 100px}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:#fff;border-top:1px solid #e8e0d5;display:flex}
+.tab{flex:1;padding:12px 0 8px;border:none;background:none;cursor:pointer;font-size:10px;font-weight:500;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;color:#bbb}
+.tab.on{color:#6b4c2a}
+.ti{font-size:18px}
+.sec{font-size:10px;color:#a08060;font-weight:600;letter-spacing:.1em;margin:0 0 8px}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.fld{margin-bottom:14px}.fld:last-child{margin-bottom:0}
+.fld label{display:block;font-size:11px;color:#8a7a6a;margin-bottom:5px}
+.fld input{width:100%;padding:12px;border:1.5px solid #d8ccb8;border-radius:8px;background:#faf8f4;font-size:16px;font-family:inherit;-webkit-appearance:none;outline:none;color:#1a1a1a}
+.fld input:focus{border-color:#6b4c2a}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:8px 16px;border-radius:20px;border:2px solid #d8ccb8;background:#fff;color:#4a3828;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.chip.on{border-color:#6b4c2a;background:#6b4c2a;color:#fff}
+.papers{display:flex;flex-direction:column;gap:8px}
+.paper{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:2px solid transparent;border-radius:8px;cursor:pointer;background:#faf8f4;font-family:inherit;width:100%}
+.paper.on{background:#f5ede3;border-color:#6b4c2a}
+.store-row{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;justify-content:space-between;align-items:center}
+.sname{font-size:14px;font-weight:700;color:#1a1a1a}
+.ssub{font-size:12px;color:#888;margin-top:2px;line-height:1.6}
+.btn-sm{background:#f0ece3;border:none;border-radius:6px;padding:6px 10px;font-size:12px;color:#6b4c2a;cursor:pointer;font-family:inherit}
+.btn-big{width:100%;padding:14px;background:#6b4c2a;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px}
+.btn-del{width:100%;padding:12px;background:none;border:1.5px solid #e8bcbc;border-radius:12px;font-size:14px;color:#c0392b;cursor:pointer;font-family:inherit;margin-top:8px}
+.empty{background:#fff;border-radius:12px;padding:24px;text-align:center;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.empty p{font-size:13px;color:#aaa;margin-bottom:12px}
+.form-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.btn-bk{background:none;border:none;font-size:22px;cursor:pointer;color:#6b4c2a;padding:0;line-height:1}
+.ftitle{font-size:15px;font-weight:700}
+.pv{background:#faf8f4;border:1px solid #d8ccb8;border-radius:4px;padding:24px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.pv-t{font-size:24px;font-weight:700;text-align:center;letter-spacing:.4em;margin-bottom:4px}
+.pv-d{text-align:center;font-size:10px;color:#888;margin-bottom:16px}
+.pv-r{border-bottom:1.5px solid #1a1a1a;padding-bottom:5px;margin-bottom:12px}
+.pv-rn{font-size:16px;font-weight:600}
+.pv-rs{font-size:11px;color:#555;margin-left:4px}
+.pv-a{background:#f0ece3;border:1px solid #c8b89a;border-radius:3px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:baseline;gap:6px}
+.pv-av{font-size:20px;font-weight:700;flex:1;text-align:right}
+.pv-n{font-size:12px;color:#555;margin-bottom:14px}
+.pv-hr{border:none;border-top:1px solid #d8ccb8;margin-bottom:10px}
+.pv-c{text-align:center;font-size:10px;color:#aaa;margin-bottom:14px}
+.pv-f{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.pv-st{width:54px;height:54px;border:1.5px dashed #ccc;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;color:#ccc;line-height:1.8}
+.pv-sr{display:flex;align-items:flex-end;gap:8px;flex:1;justify-content:flex-end}
+.pv-si{text-align:right;font-size:11px;color:#444;line-height:1.8}
+.pv-sn{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:2px}
+.pv-hint{font-size:11px;color:#a08060;text-align:center;margin-bottom:12px}
+.amt-hint{font-size:11px;color:#8a7a6a;text-align:right;margin-top:3px;min-height:16px}
+.store-sel{background:#fff;border-radius:12px;padding:11px 14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;justify-content:space-between;align-items:center}
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;display:none;white-space:nowrap}
+@media print{.hdr,.tabbar,.toast{display:none!important}body{background:#fff}.main{padding:0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div><h1>領　収　書</h1><small>RECEIPT MAKER</small></div>
+    <button id="btn-print">🖨 印刷・PDF</button>
+  </div>
+  <div class="main" id="main"></div>
+  <div class="tabbar" id="tabbar">
+    <button class="tab on" id="t-edit"><span class="ti">✏️</span>入力</button>
+    <button class="tab" id="t-preview"><span class="ti">👁️</span>プレビュー</button>
+    <button class="tab" id="t-stores"><span class="ti">🏪</span>店舗管理</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  /* ── データ ── */
+  var PAPERS = [
+    {id:'a4',   name:'A4',       sub:'210×297mm', w:210, h:297},
+    {id:'b5',   name:'B5',       sub:'182×257mm', w:182, h:257},
+    {id:'a6',   name:'A6',       sub:'105×148mm', w:105, h:148},
+    {id:'a4t',  name:'A4三分割', sub:'99×210mm',  w:99,  h:210},
+    {id:'mk',   name:'市販領収書',sub:'84×175mm',  w:84,  h:175}
+  ];
+  var DB_KEY = 'rcpt_v4';
+  var currentTab = 'edit';
+  var editMode = false;
+  var editingStore = null;
+  var receipt = { date: todayStr(), recip:'', amount:'', note:'お品代として' };
+  var stores = [];
+  var selId = null;
+  var paperId = 'a4';
+
+  /* ── ユーティリティ ── */
+  function todayStr(){
+    var d = new Date();
+    var m = d.getMonth()+1;
+    var day = d.getDate();
+    return d.getFullYear() + '-' + (m<10?'0'+m:m) + '-' + (day<10?'0'+day:day);
+  }
+  function fmtYen(v){ var n=parseInt(v)||0; return n?n.toLocaleString('ja-JP'):''; }
+  function toJP(s){
+    if(!s) return '';
+    var p = s.split('-');
+    return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日';
+  }
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+  function h(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function $(id){ return document.getElementById(id); }
+  function val(id){ var el=$(id); return el?el.value:''; }
+
+  /* ── ストレージ ── */
+  function loadStores(){
+    try{ var v=localStorage.getItem(DB_KEY); return v?JSON.parse(v):[]; }catch(e){ return []; }
+  }
+  function saveStores(){
+    try{ localStorage.setItem(DB_KEY,JSON.stringify(stores)); }catch(e){}
+  }
+
+  /* ── 選択取得 ── */
+  function getSelStore(){
+    for(var i=0;i<stores.length;i++){ if(stores[i].id===selId) return stores[i]; }
+    return null;
+  }
+  function getSelPaper(){
+    for(var i=0;i<PAPERS.length;i++){ if(PAPERS[i].id===paperId) return PAPERS[i]; }
+    return PAPERS[0];
+  }
+
+  /* ── Toast ── */
+  function showToast(msg){
+    var t=$('toast'); if(!t) return;
+    t.textContent=msg; t.style.display='block';
+    setTimeout(function(){ t.style.display='none'; }, 2000);
+  }
+
+  /* ── 入力保存 ── */
+  function saveInputs(){
+    var d=$('f-date'), r=$('f-recip'), a=$('f-amount'), n=$('f-note');
+    if(d) receipt.date = d.value;
+    if(r) receipt.recip = r.value;
+    if(a) receipt.amount = a.value.replace(/[^0-9]/g,'');
+    if(n) receipt.note = n.value;
+  }
+
+  /* ── タブ切替 ── */
+  function switchTab(t){
+    saveInputs();
+    currentTab = t;
+    editMode = false;
+    editingStore = null;
+    var ids = ['t-edit','t-preview','t-stores'];
+    var tabs = ['edit','preview','stores'];
+    for(var i=0;i<ids.length;i++){
+      var el=$(ids[i]);
+      if(el) el.className = 'tab' + (tabs[i]===t?' on':'');
+    }
+    render();
+  }
+
+  /* ── メインレンダラー ── */
+  function render(){
+    var m = $('main'); if(!m) return;
+    try {
+      if(currentTab==='edit') m.innerHTML = buildEdit();
+      else if(currentTab==='preview') m.innerHTML = buildPreview();
+      else if(currentTab==='stores'){
+        if(editMode) m.innerHTML = buildForm();
+        else m.innerHTML = buildStoreList();
+      }
+    } catch(e){
+      m.innerHTML = '<div style="padding:20px;background:#fee;border-radius:8px;color:#c00;font-size:13px">エラー: '+e.message+'</div>';
+    }
+  }
+
+  /* ── 入力画面 ── */
+  function buildEdit(){
+    var sel = getSelStore();
+    var out = '';
+
+    out += '<div class="sec">▸ 使用する店舗</div>';
+    if(stores.length === 0){
+      out += '<div class="empty"><p>店舗が登録されていません</p><button class="btn-big" style="width:auto;padding:10px 20px" id="go-stores">＋ 店舗を登録する</button></div>';
+    } else {
+      out += '<div class="chips">';
+      for(var i=0;i<stores.length;i++){
+        var s = stores[i];
+        out += '<button class="chip'+(selId===s.id?' on':'')+'" data-sel="'+h(s.id)+'">'+h(s.name)+'</button>';
+      }
+      out += '</div>';
+      if(sel){
+        out += '<div class="store-sel"><div><div class="sname">'+h(sel.name)+'</div>'+
+          '<div class="ssub">'+(sel.addr?h(sel.addr)+'<br>':'')+(sel.tel?'TEL:'+h(sel.tel):'')+'</div></div>'+
+          '<button class="btn-sm" data-edit-store="'+h(sel.id)+'">編集</button></div>';
+      }
+    }
+
+    out += '<div class="sec">▸ 領収書情報</div><div class="card">';
+    out += '<div class="fld"><label>日付</label><input type="date" id="f-date" value="'+h(receipt.date)+'"></div>';
+    out += '<div class="fld"><label>宛先（御中）</label><input type="text" id="f-recip" value="'+h(receipt.recip)+'" placeholder="例：株式会社〇〇"></div>';
+    out += '<div class="fld"><label>金額（円）</label>'+
+      '<input type="tel" id="f-amount" value="'+h(receipt.amount)+'" placeholder="10000">'+
+      '<div class="amt-hint" id="amt-hint">'+(receipt.amount?'¥'+fmtYen(receipt.amount)+' 円（税込）':'')+'</div></div>';
+    out += '<div class="fld"><label>但し書き</label><input type="text" id="f-note" value="'+h(receipt.note)+'" placeholder="お品代として"></div>';
+    out += '</div>';
+
+    out += '<div class="sec">▸ 用紙サイズ</div><div class="card"><div class="papers">';
+    for(var j=0;j<PAPERS.length;j++){
+      var pp = PAPERS[j];
+      var iw = pp.h>pp.w ? Math.round(20*pp.w/pp.h) : 20;
+      var ih = pp.h>pp.w ? 20 : Math.round(20*pp.h/pp.w);
+      out += '<button class="paper'+(paperId===pp.id?' on':'')+'" data-paper="'+pp.id+'">'+
+        '<div style="display:flex;align-items:center;gap:10px">'+
+        '<div style="width:'+iw+'px;height:'+ih+'px;border:2px solid '+(paperId===pp.id?'#6b4c2a':'#ccc')+';border-radius:2px;flex-shrink:0"></div>'+
+        '<div><div style="font-size:14px;font-weight:600;color:#1a1a1a">'+h(pp.name)+'</div><div style="font-size:11px;color:#aaa">'+pp.sub+'</div></div>'+
+        '</div>'+(paperId===pp.id?'<span style="font-size:12px;color:#6b4c2a;font-weight:600">✓</span>':'')+
+        '</button>';
+    }
+    out += '</div></div>';
+    return out;
+  }
+
+  /* ── プレビュー画面 ── */
+  function buildPreview(){
+    var s = getSelStore();
+    var amt = receipt.amount ? '¥ '+fmtYen(receipt.amount) : '¥ ___________';
+    var sealName = s ? (s.seal||s.name) : '印';
+    return '<p class="pv-hint">右上ボタンで印刷・PDF保存できます</p>'+
+      '<div class="pv">'+
+      '<div class="pv-t">領　収　書</div>'+
+      '<div class="pv-d">'+toJP(receipt.date)+'</div>'+
+      '<div class="pv-r"><span class="pv-rn">'+h(receipt.recip||'　　　　　　　　')+'</span><span class="pv-rs">御中</span></div>'+
+      '<div class="pv-a"><span style="font-size:10px;color:#777">金額</span><span class="pv-av">'+amt+'</span><span style="font-size:10px;color:#777">－（税込）</span></div>'+
+      '<div class="pv-n">但し、'+h(receipt.note||'　　　　　　　　')+'</div>'+
+      '<hr class="pv-hr"><div class="pv-c">上記正に領収いたしました</div>'+
+      '<div class="pv-f">'+
+      '<div class="pv-st"><span>収 入</span><span>印 紙</span></div>'+
+      '<div class="pv-sr">'+
+      '<div class="pv-si"><div class="pv-sn">'+(s?h(s.name):'')+'</div>'+
+      (s&&s.addr?'<div>'+h(s.addr)+'</div>':'')+
+      (s&&s.tel?'<div>TEL:'+h(s.tel)+'</div>':'')+
+      '</div>'+buildSeal(sealName,66)+
+      '</div></div></div>';
+  }
+
+  /* ── 店舗一覧 ── */
+  function buildStoreList(){
+    var out = '<div class="sec">▸ 登録済み店舗</div>';
+    if(stores.length===0){
+      out += '<p style="text-align:center;color:#aaa;padding:30px 0;font-size:13px">まだ登録されていません</p>';
+    }
+    for(var i=0;i<stores.length;i++){
+      var s = stores[i];
+      out += '<div class="store-row">'+
+        '<div><div class="sname">'+h(s.name)+'</div>'+
+        '<div class="ssub">'+(s.addr?h(s.addr)+'<br>':'')+(s.tel?'TEL:'+h(s.tel):'')+'</div></div>'+
+        '<button class="btn-sm" data-edit-store="'+h(s.id)+'">編集</button></div>';
+    }
+    out += '<button class="btn-big" id="new-store-btn">＋ 新しい店舗を登録</button>';
+    return out;
+  }
+
+  /* ── 店舗フォーム ── */
+  function buildForm(){
+    var es = editingStore;
+    return '<div class="form-hdr">'+
+      '<button class="btn-bk" id="form-back">←</button>'+
+      '<span class="ftitle">'+(es.id?'店舗情報を編集':'新規店舗を登録')+'</span></div>'+
+      '<div class="card">'+
+      '<div class="fld"><label>店名 / 会社名 *</label><input type="text" id="es-name" value="'+h(es.name||'')+'" placeholder="例：創一路"></div>'+
+      '<div class="fld"><label>住所</label><input type="text" id="es-addr" value="'+h(es.addr||'')+'" placeholder="例：宮城県仙台市〇〇"></div>'+
+      '<div class="fld"><label>電話番号</label><input type="tel" id="es-tel" value="'+h(es.tel||'')+'" placeholder="例：022-000-0000"></div>'+
+      '<div class="fld"><label>押印テキスト（空欄時は店名）</label><input type="text" id="es-seal" value="'+h(es.seal||'')+'" placeholder="例：創一路"></div>'+
+      '</div>'+
+      '<button class="btn-big" id="save-store-btn">保存する</button>'+
+      (es.id?'<button class="btn-del" id="del-store-btn">この店舗を削除</button>':'');
+  }
+
+  /* ── 押印SVG ── */
+  function buildSeal(name, sz){
+    var raw = String(name||'印').slice(0,8);
+    var len = raw.length;
+    var lines = len<=4 ? [raw] : [raw.slice(0,Math.ceil(len/2)), raw.slice(Math.ceil(len/2))];
+    var fs = len<=3?14:len===4?12:len<=6?10:9;
+    var lh = fs+5;
+    var cx = sz/2, cy = sz/2;
+    var startY = cy - (lines.length*lh)/2 + lh/2;
+    var texts = '';
+    for(var i=0;i<lines.length;i++){
+      texts += '<text x="'+cx+'" y="'+(startY+i*lh)+'" text-anchor="middle" dominant-baseline="middle" fill="#c0392b" font-size="'+fs+'" font-family="serif" font-weight="bold">'+h(lines[i])+'</text>';
+    }
+    return '<svg width="'+sz+'" height="'+sz+'" viewBox="0 0 '+sz+' '+sz+'" style="flex-shrink:0">'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+(sz/2-2)+'" fill="none" stroke="#c0392b" stroke-width="2.2"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+(sz/2-8)+'" fill="none" stroke="#c0392b" stroke-width="1"/>'+
+      '<line x1="'+(sz*.13)+'" y1="'+cy+'" x2="'+(sz*.87)+'" y2="'+cy+'" stroke="#c0392b" stroke-width="0.8" opacity="0.4"/>'+
+      texts+'</svg>';
+  }
+
+  /* ── 印刷 ── */
+  function doPrint(){
+    saveInputs();
+    var s = getSelStore(), p = getSelPaper();
+    var amt = receipt.amount ? '¥ '+fmtYen(receipt.amount) : '¥ ___________';
+    var sealName = s ? (s.seal||s.name) : '印';
+    var raw = String(sealName).slice(0,8);
+    var len = raw.length;
+    var lines = len<=4?[raw]:[raw.slice(0,Math.ceil(len/2)),raw.slice(Math.ceil(len/2))];
+    var fs = len<=3?14:len===4?12:len<=6?10:9;
+    var lh = fs+5;
+    var startY = 38-(lines.length*lh)/2+lh/2;
+    var sg = '';
+    for(var i=0;i<lines.length;i++){
+      sg += '<text x="38" y="'+(startY+i*lh)+'" text-anchor="middle" dominant-baseline="middle" fill="#c0392b" font-size="'+fs+'" font-family="serif" font-weight="bold">'+h(lines[i])+'</text>';
+    }
+    var doc = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>領収書</title>'+
+      '<style>@page{size:'+p.w+'mm '+p.h+'mm;margin:10mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:serif;width:'+p.w+'mm}'+
+      '.T{font-size:28px;font-weight:700;text-align:center;letter-spacing:.4em;margin-bottom:4px}'+
+      '.D{text-align:center;font-size:12px;color:#888;margin-bottom:20px}'+
+      '.R{border-bottom:1.5px solid #000;padding-bottom:6px;margin-bottom:16px}'+
+      '.RN{font-size:17px;font-weight:600}.RS{font-size:12px;color:#555;margin-left:4px}'+
+      '.A{background:#f0ece3;border:1px solid #c8b89a;padding:10px 14px;margin-bottom:16px;display:flex;align-items:baseline;gap:8px}'+
+      '.AV{font-size:24px;font-weight:700;flex:1;text-align:right}'+
+      '.N{font-size:12px;color:#555;margin-bottom:18px}'+
+      '.HR{border:none;border-top:1px solid #d8ccb8;margin-bottom:12px}'+
+      '.C{text-align:center;font-size:11px;color:#aaa;letter-spacing:.1em;margin-bottom:16px}'+
+      '.F{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}'+
+      '.ST{width:64px;height:64px;border:1.5px dashed #bbb;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;color:#bbb;line-height:1.8}'+
+      '.SR{display:flex;align-items:flex-end;gap:10px;flex:1;justify-content:flex-end}'+
+      '.SI{font-size:11px;color:#555;line-height:1.75;text-align:right}'+
+      '.SN{font-size:14px;font-weight:700;margin-bottom:2px}'+
+      '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>'+
+
+```
+  '<div class="T">領　収　書</div>'+
+  '<div class="D">'+toJP(receipt.date)+'</div>'+
+  '<div class="R"><span class="RN">'+h(receipt.recip||'　　　　　　　　')+'</span><span class="RS">御中</span></div>'+
+  '<div class="A"><span style="font-size:11px;color:#888">金額</span><span class="AV">'+amt+'</span><span style="font-size:11px;color:#888">－（税込）</span></div>'+
+  '<div class="N">但し、'+h(receipt.note||'　　　　　　　　')+'</div>'+
+  '<div class="HR"></div><div class="C">上記正に領収いたしました</div>'+
+  '<div class="F"><div class="ST"><span>収 入</span><span>印 紙</span></div>'+
+  '<div class="SR"><div class="SI"><div class="SN">'+(s?h(s.name):'')+'</div>'+
+  (s&&s.addr?'<div>'+h(s.addr)+'</div>':'')+
+  (s&&s.tel?'<div>TEL:'+h(s.tel)+'</div>':'')+
+  '</div><svg width="72" height="72" viewBox="0 0 76 76">'+
+  '<circle cx="38" cy="38" r="35" fill="none" stroke="#c0392b" stroke-width="2.2"/>'+
+  '<circle cx="38" cy="38" r="29" fill="none" stroke="#c0392b" stroke-width="1"/>'+
+  '<line x1="10" y1="38" x2="66" y2="38" stroke="#c0392b" stroke-width="0.8" opacity="0.4"/>'+
+  sg+'</svg></div></div>'+
+  '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400);}</scr'+'ipt>'+
+  '</body></html>';
+var w = window.open('','_blank');
+if(w){ w.document.write(doc); w.document.close(); }
+```
+
+}
+
+/* ── イベント（委任） ── */
+function setupEvents(){
+/* タブ */
+$(‘t-edit’).onclick    = function(){ switchTab(‘edit’); };
+$(‘t-preview’).onclick = function(){ switchTab(‘preview’); };
+$(‘t-stores’).onclick  = function(){ switchTab(‘stores’); };
+
+```
+/* 印刷 */
+$('btn-print').onclick = doPrint;
+
+/* main への委任 */
+$('main').addEventListener('click', function(e){
+  var el = e.target;
+
+  /* 店舗チップ */
+  if(el.dataset && el.dataset.sel){
+    saveInputs(); selId = el.dataset.sel; render(); return;
+  }
+  /* 用紙選択 */
+  if(el.dataset && el.dataset.paper){
+    saveInputs(); paperId = el.dataset.paper; render(); return;
+  }
+  /* 店舗編集ボタン */
+  if(el.dataset && el.dataset.editStore){
+    saveInputs();
+    for(var i=0;i<stores.length;i++){
+      if(stores[i].id===el.dataset.editStore){
+        editingStore = JSON.parse(JSON.stringify(stores[i])); break;
+      }
+    }
+    editMode = true; render(); return;
+  }
+  /* 店舗登録へ */
+  if(el.id==='go-stores'){ saveInputs(); currentTab='stores'; $('t-stores').className='tab on'; $('t-edit').className='tab'; $('t-preview').className='tab'; editMode=false; render(); return; }
+  /* 新規登録ボタン */
+  if(el.id==='new-store-btn'){ editingStore={name:'',addr:'',tel:'',seal:''}; editMode=true; render(); return; }
+  /* フォーム戻る */
+  if(el.id==='form-back'){ editMode=false; editingStore=null; render(); return; }
+  /* 保存 */
+  if(el.id==='save-store-btn'){
+    var name = val('es-name').trim();
+    if(!name){ alert('店名を入力してください'); return; }
+    var store = { name:name, addr:val('es-addr').trim(), tel:val('es-tel').trim(), seal:val('es-seal').trim() };
+    if(editingStore && editingStore.id){
+      store.id = editingStore.id;
+      for(var j=0;j<stores.length;j++){ if(stores[j].id===store.id){ stores[j]=store; break; } }
+    } else {
+      store.id = uid();
+      stores.push(store);
+      selId = store.id;
+    }
+    saveStores(); editMode=false; editingStore=null; showToast('✓ 保存しました'); render(); return;
+  }
+  /* 削除 */
+  if(el.id==='del-store-btn'){
+    if(!confirm('削除しますか？')) return;
+    stores = stores.filter(function(s){ return s.id !== editingStore.id; });
+    if(selId===editingStore.id) selId = stores.length ? stores[0].id : null;
+    saveStores(); editMode=false; editingStore=null; showToast('削除しました'); render(); return;
+  }
+});
+
+/* 金額ヒント */
+$('main').addEventListener('input', function(e){
+  if(e.target.id==='f-amount'){
+    e.target.value = e.target.value.replace(/[^0-9]/g,'');
+    receipt.amount = e.target.value;
+    var hint = $('amt-hint');
+    if(hint) hint.textContent = receipt.amount ? '¥'+fmtYen(receipt.amount)+' 円（税込）' : '';
+  }
+});
+```
+
+}
+
+/* ── 起動 ── */
+stores = loadStores();
+if(stores.length) selId = stores[0].id;
+setupEvents();
+render();
+})();
+</script>
+
+</body>
+</html>
