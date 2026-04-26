@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>領収書メーカー</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#f0ece3;font-family:'Hiragino Sans','Yu Gothic',sans-serif}
+  input:focus{border-color:#8a6a3a!important;box-shadow:0 0 0 3px rgba(107,76,42,0.12)!important;outline:none}
+  .slide{animation:su .18s ease}
+  @keyframes su{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @media print{
+    .no-print{display:none!important}
+    body{background:#fff}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback, useEffect } = React;
+
+/* ══════ 定数 ══════ */
+const TODAY = new Date().toISOString().slice(0,10);
+const RECEIPT_INIT = { date:TODAY, recipientName:””, amount:””, note:“お品代として” };
+const STORE_INIT   = { name:””, address:””, phone:””, sealName:”” };
+const DB_KEY = “rcpt_stores_v3”;
+
+const PAPERS = [
+{ id:“a4”,      label:“A4”,        sub:“210×297mm”, w:210, h:297, cat:“large”  },
+{ id:“b5”,      label:“B5”,        sub:“182×257mm”, w:182, h:257, cat:“large”  },
+{ id:“a6”,      label:“A6”,        sub:“105×148mm”, w:105, h:148, cat:“medium” },
+{ id:“a4third”, label:“A4三分割”,  sub:“99×210mm”,  w:99,  h:210, cat:“medium” },
+{ id:“market”,  label:“市販領収書”, sub:“84×175mm”,  w:84,  h:175, cat:“small”  },
+];
+
+/* ══════ ユーティリティ ══════ */
+const formatYen = raw => {
+const n = String(raw).replace(/[^0-9]/g,””);
+return n ? Number(n).toLocaleString(“ja-JP”) : “”;
+};
+const toJPDate = iso => {
+if(!iso) return “”;
+const [y,m,d] = iso.split(”-”);
+return `${y}年${+m}月${+d}日`;
+};
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+
+/* ══════ ストレージ（localStorage） ══════ */
+function loadStores(){
+try{
+const v = localStorage.getItem(DB_KEY);
+return v ? JSON.parse(v) : [];
+} catch{ return []; }
+}
+function saveStores(list){
+try{
+localStorage.setItem(DB_KEY, JSON.stringify(list));
+return true;
+} catch{ return false; }
+}
+
+/* ══════ 押印SVG ══════ */
+function Seal({ name, size=76 }){
+const raw  = (name||“印”).trim().slice(0,8);
+const len  = raw.length;
+const lines = len<=4 ? [raw] : [raw.slice(0,Math.ceil(len/2)), raw.slice(Math.ceil(len/2))];
+const fs   = len<=3?14:len===4?12:len<=6?10:9;
+const lh   = fs+5;
+const startY = size/2 - (lines.length*lh)/2 + lh/2;
+const cx=size/2, cy=size/2, ro=size/2-2, ri=size/2-8;
+return (
+<svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+<circle cx={cx} cy={cy} r={ro} fill="none" stroke="#c0392b" strokeWidth="2.2"/>
+<circle cx={cx} cy={cy} r={ri} fill="none" stroke="#c0392b" strokeWidth="1"/>
+<line x1={size*0.13} y1={cy} x2={size*0.87} y2={cy} stroke="#c0392b" strokeWidth="0.8" opacity="0.45"/>
+{lines.map((line,i)=>(
+<text key={i} x={cx} y={startY+i*lh} textAnchor=“middle” dominantBaseline=“middle”
+fill=”#c0392b” fontSize={fs} fontFamily=“serif” fontWeight=“bold”
+letterSpacing={len<=4?“2”:“1”}>{line}</text>
+))}
+</svg>
+);
+}
+
+/* ══════ プレビュー ══════ */
+function Preview({ r, s, paper }){
+const amt     = r.amount ? `¥ ${formatYen(r.amount)}` : “¥ ___________”;
+const isSmall = paper.cat===“small”;
+const px = isSmall?16:22, py = isSmall?20:28;
+return (
+<div style={{ background:”#faf8f4”, border:“1px solid #d8ccb8”, borderRadius:4,
+padding:`${py}px ${px}px`, color:”#1a1a1a”, boxShadow:“0 2px 12px rgba(0,0,0,0.1)” }}>
+<div style={{ display:“flex”, justifyContent:“flex-end”, marginBottom:6 }}>
+<span style={{ fontSize:9, color:”#aaa”, border:“1px solid #ddd”, borderRadius:3,
+padding:“2px 6px” }}>{paper.label}・{paper.sub}</span>
+</div>
+<div style={{ textAlign:“center”, marginBottom:isSmall?12:18 }}>
+<div style={{ fontSize:isSmall?20:26, fontWeight:700, letterSpacing:“0.4em”, marginBottom:2 }}>領　収　書</div>
+<div style={{ fontSize:10, color:”#888” }}>{toJPDate(r.date)}</div>
+</div>
+<div style={{ borderBottom:“1.5px solid #1a1a1a”, paddingBottom:5, marginBottom:isSmall?10:14 }}>
+<span style={{ fontSize:isSmall?13:16, fontWeight:600 }}>{r.recipientName||”　　　　　　　　“}</span>
+<span style={{ fontSize:11, marginLeft:4, color:”#555” }}>御中</span>
+</div>
+<div style={{ background:”#f0ece3”, border:“1px solid #c8b89a”, borderRadius:3,
+padding:isSmall?“8px 10px”:“11px 14px”, marginBottom:isSmall?10:14,
+display:“flex”, alignItems:“baseline”, gap:6 }}>
+<span style={{ fontSize:10, color:”#777” }}>金額</span>
+<span style={{ fontSize:isSmall?16:22, fontWeight:700, flex:1, textAlign:“right” }}>{amt}</span>
+<span style={{ fontSize:10, color:”#777” }}>－（税込）</span>
+</div>
+<div style={{ fontSize:isSmall?10:12, color:”#555”, marginBottom:isSmall?10:16 }}>
+但し、{r.note||”　　　　　　　　“}
+</div>
+<div style={{ textAlign:“center”, fontSize:10, color:”#aaa”, letterSpacing:“0.1em”,
+marginBottom:isSmall?10:16, paddingTop:6, borderTop:“1px solid #d8ccb8” }}>
+上記正に領収いたしました
+</div>
+<div style={{ display:“flex”, alignItems:“flex-end”, justifyContent:“space-between”, gap:6 }}>
+{!isSmall&&(
+<div style={{ width:56, height:56, flexShrink:0, border:“1.5px dashed #ccc”,
+borderRadius:3, display:“flex”, flexDirection:“column”,
+alignItems:“center”, justifyContent:“center”, gap:1 }}>
+<div style={{ fontSize:8, color:”#ccc” }}>収 入</div>
+<div style={{ fontSize:8, color:”#ccc” }}>印 紙</div>
+</div>
+)}
+<div style={{ display:“flex”, alignItems:“flex-end”, gap:8, flex:1, justifyContent:“flex-end” }}>
+<div style={{ textAlign:“right”, fontSize:isSmall?9:11, color:”#444”, lineHeight:1.8 }}>
+<div style={{ fontSize:isSmall?11:13, fontWeight:700, color:”#1a1a1a”, marginBottom:2 }}>{s?.name||”　　　　　　“}</div>
+{s?.address&&<div>{s.address}</div>}
+{s?.phone&&<div>TEL: {s.phone}</div>}
+</div>
+<Seal name={s?.sealName||s?.name} size={isSmall?56:68}/>
+</div>
+</div>
+</div>
+);
+}
+
+/* ══════ 印刷HTML生成 ══════ */
+function buildPrintHTML(r, s, paper){
+const amt  = r.amount ? `¥ ${formatYen(r.amount)}` : “¥ ___________”;
+const raw  = (s?.sealName||s?.name||“印”).trim().slice(0,8);
+const len  = raw.length;
+const lines = len<=4 ? [raw] : [raw.slice(0,Math.ceil(len/2)), raw.slice(Math.ceil(len/2))];
+const fs   = len<=3?14:len===4?12:len<=6?10:9;
+const lh   = fs+5;
+const cx=38, cy=38;
+const sY   = cy - (lines.length*lh)/2 + lh/2;
+const sealG = lines.map((l,i)=>
+`<text x="${cx}" y="${sY+i*lh}" text-anchor="middle" dominant-baseline="middle" fill="#c0392b" font-size="${fs}" font-family="serif" font-weight="bold" letter-spacing="${len<=4?2:1}">${l}</text>`).join(””);
+
+const isLarge=paper.cat===“large”, isMedium=paper.cat===“medium”, isSmall=paper.cat===“small”;
+const titlePx=isLarge?30:isMedium?20:16;
+const bodyPx=isLarge?13:isMedium?10:9;
+const amtPx=isLarge?26:isMedium?18:14;
+const namePx=isLarge?16:isMedium?12:11;
+const sealSz=isLarge?76:isMedium?62:52;
+const stampSz=isLarge?68:isMedium?54:0;
+const margin=isLarge?“12mm 16mm”:isMedium?“6mm 8mm”:“4mm 5mm”;
+const gap=isLarge?20:isMedium?12:8;
+const stampHTML = stampSz>0 ? ` <div style="width:${stampSz}px;height:${stampSz}px;flex-shrink:0;border:1.5px dashed #bbb;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"> <div style="font-size:9px;color:#bbb">収 入</div> <div style="font-size:9px;color:#bbb">印 紙</div> </div>` : “”;
+
+return `<!DOCTYPE html><html lang="ja"><head>
+<meta charset="UTF-8"><title>領収書</title>
+
+<style>
+@page{size:${paper.w}mm ${paper.h}mm;margin:${margin}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:serif;width:${paper.w}mm}
+.title{font-size:${titlePx}px;font-weight:700;text-align:center;letter-spacing:.4em;margin-bottom:3px}
+.date{text-align:center;font-size:${bodyPx}px;color:#888;margin-bottom:${gap}px}
+.recip{border-bottom:1.5px solid #1a1a1a;padding-bottom:${isSmall?4:6}px;margin-bottom:${gap}px}
+.rname{font-size:${isLarge?18:isSmall?13:15}px;font-weight:600}
+.rsuf{font-size:${bodyPx}px;color:#555;margin-left:4px}
+.amtbox{background:#f0ece3;border:1px solid #c8b89a;padding:${isSmall?"6px 8px":"11px 14px"};margin-bottom:${gap}px;display:flex;align-items:baseline;gap:8px}
+.amtv{font-size:${amtPx}px;font-weight:700;flex:1;text-align:right}
+.note{font-size:${bodyPx}px;color:#555;margin-bottom:${gap}px}
+.divider{border:none;border-top:1px solid #d8ccb8;margin-bottom:${Math.round(gap*0.7)}px}
+.center{text-align:center;font-size:${bodyPx}px;color:#aaa;letter-spacing:.1em;margin-bottom:${gap}px}
+.footer{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
+.store-right{display:flex;align-items:flex-end;gap:${isSmall?6:10}px;flex:1;justify-content:flex-end}
+.sname{font-size:${namePx}px;font-weight:700;margin-bottom:2px}
+.sinfo{font-size:${bodyPx}px;color:#555;line-height:1.75;text-align:right}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+
+<div class="title">領　収　書</div>
+<div class="date">${toJPDate(r.date)}</div>
+<div class="recip"><span class="rname">${r.recipientName||"　　　　　　　　"}</span><span class="rsuf">御中</span></div>
+<div class="amtbox">
+  <span style="font-size:${bodyPx}px;color:#888">金額</span>
+  <span class="amtv">${amt}</span>
+  <span style="font-size:${bodyPx}px;color:#888">－（税込）</span>
+</div>
+<div class="note">但し、${r.note||"　　　　　　　　"}</div>
+<div class="divider"></div>
+<div class="center">上記正に領収いたしました</div>
+<div class="footer">
+  ${stampHTML}
+  <div class="store-right">
+    <div class="sinfo">
+      <div class="sname">${s?.name||"　　　　　"}</div>
+      ${s?.address?`<div>${s.address}</div>`:""}
+      ${s?.phone?`<div>TEL: ${s.phone}</div>`:""}
+    </div>
+    <svg width="${sealSz}" height="${sealSz}" viewBox="0 0 76 76" style="flex-shrink:0">
+      <circle cx="38" cy="38" r="35" fill="none" stroke="#c0392b" stroke-width="2.2"/>
+      <circle cx="38" cy="38" r="29" fill="none" stroke="#c0392b" stroke-width="1"/>
+      <line x1="10" y1="38" x2="66" y2="38" stroke="#c0392b" stroke-width="0.8" opacity="0.45"/>
+      ${sealG}
+    </svg>
+  </div>
+</div>
+<script>window.onload=()=>setTimeout(()=>window.print(),450)<\/script>
+</body></html>`;
+}
+
+/* ══════ フィールド ══════ */
+function F({ label, children, required }){
+return (
+<div style={{ marginBottom:14 }}>
+<div style={{ fontSize:11, color:”#8a7a6a”, fontWeight:500, letterSpacing:“0.06em”, marginBottom:5 }}>
+{label}{required&&<span style={{ color:”#c0392b”, marginLeft:2 }}>*</span>}
+</div>
+{children}
+</div>
+);
+}
+const box = { width:“100%”, padding:“12px 13px”, border:“1.5px solid #d8ccb8”, borderRadius:8,
+background:”#faf8f4”, fontSize:16, color:”#1a1a1a”, fontFamily:“inherit”, WebkitAppearance:“none” };
+
+/* ══════ メインアプリ ══════ */
+function App(){
+const [tab,       setTab      ] = useState(“edit”);
+const [receipt,   setReceipt  ] = useState(RECEIPT_INIT);
+const [stores,    setStores   ] = useState([]);
+const [selId,     setSelId    ] = useState(null);
+const [paperId,   setPaperId  ] = useState(“a4”);
+const [editStore, setEditStore] = useState(null);
+const [printOk,   setPrintOk  ] = useState(false);
+const [saveMsg,   setSaveMsg  ] = useState(””);
+
+const setR  = useCallback((k,v)=>setReceipt(p=>({…p,[k]:v})),[]);
+const sel   = stores.find(s=>s.id===selId)||null;
+const paper = PAPERS.find(p=>p.id===paperId)||PAPERS[0];
+
+useEffect(()=>{
+const data = loadStores();
+if(data.length>0){ setStores(data); setSelId(data[0].id); }
+},[]);
+
+const persistAndSet = (next, msg)=>{
+setStores(next);
+const ok = saveStores(next);
+setSaveMsg(ok ? msg : “⚠️ 保存できませんでした”);
+setTimeout(()=>setSaveMsg(””),2200);
+};
+
+const handleSaveStore = ()=>{
+if(!editStore.name.trim()) return;
+let next;
+if(editStore.id){
+next = stores.map(s=>s.id===editStore.id?editStore:s);
+} else {
+const ns = {…editStore, id:uid()};
+next = […stores, ns];
+setSelId(ns.id);
+}
+persistAndSet(next,“✓ 保存しました”);
+setEditStore(null);
+};
+
+const handleDeleteStore = (id)=>{
+const next = stores.filter(s=>s.id!==id);
+persistAndSet(next,“削除しました”);
+if(selId===id) setSelId(next[0]?.id||null);
+setEditStore(null);
+};
+
+const handlePrint = ()=>{
+const html = buildPrintHTML(receipt, sel, paper);
+const w = window.open(””,”_blank”);
+if(!w) return;
+w.document.write(html);
+w.document.close();
+setPrintOk(true);
+setTimeout(()=>setPrintOk(false),2500);
+};
+
+const Tb = ({id,icon,label})=>(
+<button onClick={()=>{setEditStore(null);setTab(id);}}
+style={{ flex:1, padding:“12px 0 8px”, border:“none”, background:“none”, cursor:“pointer”,
+display:“flex”, flexDirection:“column”, alignItems:“center”, gap:2,
+color:tab===id?”#6b4c2a”:”#bbb” }}>
+<span style={{ fontSize:18 }}>{icon}</span>
+<span style={{ fontSize:10, fontWeight:500 }}>{label}</span>
+{tab===id&&<div style={{ width:18, height:2, background:”#6b4c2a”, borderRadius:2 }}/>}
+</button>
+);
+
+return (
+<div style={{ minHeight:“100vh”, background:”#f0ece3”, display:“flex”,
+flexDirection:“column”, maxWidth:500, margin:“0 auto” }}>
+
+```
+  {/* ヘッダー */}
+  <div className="no-print" style={{ background:"#1a1a1a", padding:"14px 16px 12px",
+    display:"flex", alignItems:"center", justifyContent:"space-between",
+    position:"sticky", top:0, zIndex:99 }}>
+    <div>
+      <div style={{ fontSize:16, fontWeight:700, color:"#f5f0e8", letterSpacing:"0.2em" }}>領収書</div>
+      <div style={{ fontSize:9, color:"#666", letterSpacing:"0.1em" }}>RECEIPT MAKER</div>
+    </div>
+    <button onClick={handlePrint} style={{
+      background:printOk?"#27ae60":"#c0392b", color:"#fff",
+      border:"none", borderRadius:8, padding:"9px 14px",
+      fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"inherit",
+      display:"flex", alignItems:"center", gap:5, transition:"background 0.2s" }}>
+      {printOk?"✓ 完了!":"🖨 印刷・PDF"}
+    </button>
+  </div>
+
+  {saveMsg&&(
+    <div style={{ fontSize:12, fontWeight:500, textAlign:"center", padding:"8px",
+      background:saveMsg.includes("⚠️")?"#fdecea":"#eaf7ed",
+      color:saveMsg.includes("⚠️")?"#c0392b":"#27ae60" }}>{saveMsg}</div>
+  )}
+
+  {/* コンテンツ */}
+  <div style={{ flex:1, padding:"16px 12px 90px", overflowY:"auto" }}>
+
+    {/* 入力タブ */}
+    {tab==="edit"&&(
+      <div className="slide">
+        <div style={{ fontSize:10, color:"#a08060", fontWeight:500, letterSpacing:"0.12em", marginBottom:8 }}>▸ 使用する店舗</div>
+        {stores.length===0?(
+          <div style={{ background:"#fff", borderRadius:12, padding:"18px 16px",
+            boxShadow:"0 1px 4px rgba(0,0,0,0.07)", textAlign:"center", marginBottom:14 }}>
+            <div style={{ fontSize:13, color:"#aaa", marginBottom:12 }}>店舗が登録されていません</div>
+            <button onClick={()=>{setEditStore({...STORE_INIT});setTab("stores");}}
+              style={{ background:"#6b4c2a", color:"#fff", border:"none", borderRadius:8,
+                padding:"10px 20px", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"inherit" }}>
+              ＋ 店舗を登録する
+            </button>
+          </div>
+        ):(
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+            {stores.map(s=>(
+              <button key={s.id} onClick={()=>setSelId(s.id)} style={{
+                padding:"9px 16px", borderRadius:20,
+                border:selId===s.id?"2px solid #6b4c2a":"2px solid #d8ccb8",
+                background:selId===s.id?"#6b4c2a":"#fff",
+                color:selId===s.id?"#fff":"#4a3828",
+                fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                {s.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {sel&&(
+          <div style={{ background:"#fff", borderRadius:12, padding:"11px 14px",
+            marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.07)",
+            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ fontSize:12, color:"#555", lineHeight:1.75 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#1a1a1a" }}>{sel.name}</div>
+              {sel.address&&<div>{sel.address}</div>}
+              {sel.phone&&<div>TEL: {sel.phone}</div>}
+            </div>
+            <button onClick={()=>{setEditStore({...sel});setTab("stores");}} style={{
+              fontSize:12, color:"#8a7a6a", background:"#f0ece3",
+              border:"none", borderRadius:6, padding:"6px 10px", cursor:"pointer", fontFamily:"inherit" }}>
+              編集
+            </button>
+          </div>
+        )}
+
+        <div style={{ fontSize:10, color:"#a08060", fontWeight:500, letterSpacing:"0.12em", marginBottom:8 }}>▸ 領収書情報</div>
+        <div style={{ background:"#fff", borderRadius:12, padding:"16px 14px",
+          marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.07)" }}>
+          <F label="日付" required>
+            <input type="date" value={receipt.date}
+              onChange={e=>setR("date",e.target.value)} style={{...box,fontSize:15}}/>
+          </F>
+          <F label="宛先（御中）" required>
+            <input type="text" value={receipt.recipientName}
+              onChange={e=>setR("recipientName",e.target.value)}
+              placeholder="例：株式会社〇〇" style={box}/>
+          </F>
+          <F label="金額（円）" required>
+            <div style={{ position:"relative" }}>
+              <span style={{ position:"absolute", left:12, top:"50%",
+                transform:"translateY(-50%)", color:"#999", pointerEvents:"none" }}>¥</span>
+              <input type="tel" inputMode="numeric" value={receipt.amount}
+                onChange={e=>setR("amount",e.target.value.replace(/[^0-9]/g,""))}
+                placeholder="10000" style={{...box,paddingLeft:26}}/>
+            </div>
+            {receipt.amount&&(
+              <div style={{ fontSize:11, color:"#8a7a6a", marginTop:3, textAlign:"right" }}>
+                ¥{formatYen(receipt.amount)} 円（税込）
+              </div>
+            )}
+          </F>
+          <F label="但し書き">
+            <input type="text" value={receipt.note}
+              onChange={e=>setR("note",e.target.value)}
+              placeholder="お品代として" style={box}/>
+          </F>
+        </div>
+
+        <div style={{ fontSize:10, color:"#a08060", fontWeight:500, letterSpacing:"0.12em", marginBottom:8 }}>▸ 用紙サイズ</div>
+        <div style={{ background:"#fff", borderRadius:12, padding:"14px",
+          boxShadow:"0 1px 4px rgba(0,0,0,0.07)" }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {PAPERS.map(p=>(
+              <button key={p.id} onClick={()=>setPaperId(p.id)} style={{
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+                padding:"11px 14px", border:"none", borderRadius:8, cursor:"pointer",
+                background:paperId===p.id?"#f5ede3":"#faf8f4", fontFamily:"inherit",
+                outline:paperId===p.id?"2px solid #6b4c2a":"2px solid transparent" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{
+                    width:p.h>p.w?Math.round(22*p.w/p.h):22,
+                    height:p.h>p.w?22:Math.round(22*p.h/p.w),
+                    border:`2px solid ${paperId===p.id?"#6b4c2a":"#ccc"}`,
+                    borderRadius:2, flexShrink:0,
+                    background:paperId===p.id?"rgba(107,76,42,0.08)":"transparent"
+                  }}/>
+                  <div style={{ textAlign:"left" }}>
+                    <div style={{ fontSize:14, fontWeight:600, color:"#1a1a1a" }}>{p.label}</div>
+                    <div style={{ fontSize:11, color:"#aaa" }}>{p.sub}</div>
+                  </div>
+                </div>
+                {paperId===p.id&&<div style={{ fontSize:12, color:"#6b4c2a", fontWeight:600 }}>✓ 選択中</div>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* プレビュータブ */}
+    {tab==="preview"&&(
+      <div className="slide">
+        <div style={{ fontSize:11, color:"#a08060", textAlign:"center", marginBottom:12 }}>
+          右上ボタンで印刷・PDF保存できます
+        </div>
+        <Preview r={receipt} s={sel} paper={paper}/>
+      </div>
+    )}
+
+    {/* 店舗管理タブ */}
+    {tab==="stores"&&!editStore&&(
+      <div className="slide">
+        <div style={{ fontSize:10, color:"#a08060", fontWeight:500, letterSpacing:"0.12em", marginBottom:10 }}>▸ 登録済み店舗</div>
+        {stores.length===0&&(
+          <div style={{ textAlign:"center", color:"#aaa", fontSize:13, padding:"30px 0" }}>
+            まだ登録されていません
+          </div>
+        )}
+        {stores.map(s=>(
+          <div key={s.id} style={{ background:"#fff", borderRadius:12, padding:"14px 16px",
+            marginBottom:10, boxShadow:"0 1px 4px rgba(0,0,0,0.07)",
+            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:"#1a1a1a", marginBottom:2 }}>{s.name}</div>
+              <div style={{ fontSize:12, color:"#888", lineHeight:1.7 }}>
+                {s.address&&<div>{s.address}</div>}
+                {s.phone&&<div>TEL: {s.phone}</div>}
+                {s.sealName&&<div>印鑑: {s.sealName}</div>}
+              </div>
+            </div>
+            <button onClick={()=>setEditStore({...s})} style={{
+              background:"#f0ece3", border:"none", borderRadius:8, padding:"8px 14px",
+              fontSize:13, color:"#6b4c2a", fontWeight:500, cursor:"pointer", fontFamily:"inherit" }}>
+              編集
+            </button>
+          </div>
+        ))}
+        <button onClick={()=>setEditStore({...STORE_INIT})} style={{
+          width:"100%", padding:"14px", background:"#6b4c2a", color:"#fff",
+          border:"none", borderRadius:12, fontSize:15, fontWeight:600,
+          cursor:"pointer", fontFamily:"inherit", marginTop:4, letterSpacing:"0.05em" }}>
+          ＋ 新しい店舗を登録
+        </button>
+      </div>
+    )}
+
+    {/* 店舗編集フォーム */}
+    {tab==="stores"&&editStore&&(
+      <div className="slide">
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+          <button onClick={()=>setEditStore(null)} style={{
+            background:"none", border:"none", fontSize:20, cursor:"pointer",
+            color:"#6b4c2a", padding:0, lineHeight:1 }}>←</button>
+          <div style={{ fontSize:14, fontWeight:600, color:"#1a1a1a" }}>
+            {editStore.id?"店舗情報を編集":"新規店舗を登録"}
+          </div>
+        </div>
+        <div style={{ background:"#fff", borderRadius:12, padding:"18px 16px",
+          boxShadow:"0 1px 4px rgba(0,0,0,0.07)", marginBottom:12 }}>
+          <F label="店名 / 会社名" required>
+            <input type="text" value={editStore.name}
+              onChange={e=>setEditStore(p=>({...p,name:e.target.value}))}
+              placeholder="例：創一路" style={box}/>
+          </F>
+          <F label="住所">
+            <input type="text" value={editStore.address}
+              onChange={e=>setEditStore(p=>({...p,address:e.target.value}))}
+              placeholder="例：宮城県仙台市〇〇" style={box}/>
+          </F>
+          <F label="電話番号">
+            <input type="tel" value={editStore.phone}
+              onChange={e=>setEditStore(p=>({...p,phone:e.target.value}))}
+              placeholder="例：022-000-0000" style={box}/>
+          </F>
+          <F label="押印テキスト（空欄時は店名）">
+            <input type="text" value={editStore.sealName}
+              onChange={e=>setEditStore(p=>({...p,sealName:e.target.value}))}
+              placeholder="例：創一路" style={box}/>
+            <div style={{ fontSize:10, color:"#bbb", marginTop:3 }}>※ 印鑑の中に表示されます</div>
+          </F>
+        </div>
+        <button onClick={handleSaveStore} disabled={!editStore.name.trim()} style={{
+          width:"100%", padding:"14px",
+          background:editStore.name.trim()?"#6b4c2a":"#ccc",
+          color:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:600,
+          cursor:editStore.name.trim()?"pointer":"default",
+          fontFamily:"inherit", marginBottom:10 }}>
+          保存する
+        </button>
+        {editStore.id&&(
+          <button onClick={()=>{
+            if(window.confirm(`「${editStore.name}」を削除しますか？`))
+              handleDeleteStore(editStore.id);
+          }} style={{
+            width:"100%", padding:"12px", background:"none",
+            border:"1.5px solid #e8bcbc", borderRadius:12,
+            fontSize:14, fontWeight:500, color:"#c0392b",
+            cursor:"pointer", fontFamily:"inherit" }}>
+            この店舗を削除
+          </button>
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* タブバー */}
+  <div className="no-print" style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
+    width:"100%", maxWidth:500, background:"#fff",
+    borderTop:"1px solid #e8e0d5", display:"flex", zIndex:100 }}>
+    <Tb id="edit"    icon="✏️" label="入力"/>
+    <Tb id="preview" icon="👁️" label="プレビュー"/>
+    <Tb id="stores"  icon="🏪" label="店舗管理"/>
+  </div>
+</div>
+```
+
+);
+}
+
+ReactDOM.createRoot(document.getElementById(“root”)).render(<App/>);
+</script>
+
+</body>
+</html>
