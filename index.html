@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>領収書メーカー</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Yu Gothic',sans-serif;background:#f0ece3}
+#app{max-width:500px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.hdr{background:#1a1a1a;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:99}
+.hdr h1{color:#f5f0e8;font-size:16px;font-weight:700;letter-spacing:.2em}
+.hdr small{color:#666;font-size:9px;display:block}
+#btn-print{background:#c0392b;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:500;cursor:pointer}
+.main{flex:1;padding:16px 12px 100px;overflow-y:auto}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:#fff;border-top:1px solid #e8e0d5;display:flex}
+.tab{flex:1;padding:12px 0 8px;border:none;background:none;cursor:pointer;font-size:10px;color:#bbb;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tab.on{color:#6b4c2a}
+.tab-icon{font-size:18px;line-height:1}
+.sec{font-size:10px;color:#a08060;font-weight:600;letter-spacing:.1em;margin:0 0 8px}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.fld{margin-bottom:14px}
+.fld:last-child{margin-bottom:0}
+.fld label{display:block;font-size:11px;color:#8a7a6a;margin-bottom:5px}
+.fld input{width:100%;padding:12px;border:1.5px solid #d8ccb8;border-radius:8px;background:#faf8f4;font-size:16px;color:#1a1a1a;font-family:inherit;-webkit-appearance:none;outline:none}
+.fld input:focus{border-color:#6b4c2a}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:8px 16px;border-radius:20px;border:2px solid #d8ccb8;background:#fff;color:#4a3828;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.chip.on{border-color:#6b4c2a;background:#6b4c2a;color:#fff}
+.papers{display:flex;flex-direction:column;gap:8px}
+.paper{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border:2px solid transparent;border-radius:8px;cursor:pointer;background:#faf8f4;font-family:inherit;width:100%;text-align:left}
+.paper.on{background:#f5ede3;border-color:#6b4c2a}
+.paper-icon{border:2px solid #ccc;border-radius:2px;flex-shrink:0;margin-right:10px}
+.paper.on .paper-icon{border-color:#6b4c2a}
+.paper-name{font-size:14px;font-weight:600;color:#1a1a1a}
+.paper-sub{font-size:11px;color:#aaa}
+.paper-check{font-size:12px;color:#6b4c2a;font-weight:600}
+.store-sel{background:#fff;border-radius:12px;padding:11px 14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;justify-content:space-between;align-items:center}
+.store-name{font-size:13px;font-weight:700;color:#1a1a1a}
+.store-sub{font-size:12px;color:#888;line-height:1.7;margin-top:2px}
+.btn-sm{background:#f0ece3;border:none;border-radius:6px;padding:6px 10px;font-size:12px;color:#6b4c2a;cursor:pointer;font-family:inherit}
+.empty-store{background:#fff;border-radius:12px;padding:20px;margin-bottom:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.empty-store p{font-size:13px;color:#aaa;margin-bottom:12px}
+.btn-primary{background:#6b4c2a;color:#fff;border:none;border-radius:10px;padding:13px 20px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-block{width:100%}
+.amt-hint{font-size:11px;color:#8a7a6a;text-align:right;margin-top:3px;height:16px}
+.store-row{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;justify-content:space-between;align-items:center}
+.form-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.btn-back{background:none;border:none;font-size:22px;cursor:pointer;color:#6b4c2a;padding:0;line-height:1}
+.form-title{font-size:15px;font-weight:700;color:#1a1a1a}
+.btn-save{width:100%;padding:14px;background:#6b4c2a;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:10px}
+.btn-del{width:100%;padding:12px;background:none;border:1.5px solid #e8bcbc;border-radius:12px;font-size:14px;color:#c0392b;cursor:pointer;font-family:inherit}
+.pv-wrap{background:#faf8f4;border:1px solid #d8ccb8;border-radius:4px;padding:24px 20px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+.pv-title{font-size:24px;font-weight:700;text-align:center;letter-spacing:.4em;margin-bottom:4px}
+.pv-date{text-align:center;font-size:10px;color:#888;margin-bottom:16px}
+.pv-recip{border-bottom:1.5px solid #1a1a1a;padding-bottom:5px;margin-bottom:12px}
+.pv-rname{font-size:16px;font-weight:600}
+.pv-rsuf{font-size:11px;color:#555;margin-left:4px}
+.pv-amt{background:#f0ece3;border:1px solid #c8b89a;border-radius:3px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:baseline;gap:6px}
+.pv-amtval{font-size:20px;font-weight:700;flex:1;text-align:right}
+.pv-note{font-size:12px;color:#555;margin-bottom:14px}
+.pv-divider{border:none;border-top:1px solid #d8ccb8;margin-bottom:10px}
+.pv-center{text-align:center;font-size:10px;color:#aaa;margin-bottom:14px}
+.pv-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.pv-stamp{width:54px;height:54px;border:1.5px dashed #ccc;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.pv-stamp span{font-size:8px;color:#ccc;line-height:1.6}
+.pv-storeright{display:flex;align-items:flex-end;gap:8px;flex:1;justify-content:flex-end}
+.pv-storetxt{text-align:right;font-size:11px;color:#444;line-height:1.8}
+.pv-storename{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:2px}
+.pv-hint{font-size:11px;color:#a08060;text-align:center;margin-bottom:12px}
+.toast{display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;white-space:nowrap}
+@media print{.hdr,.tabbar,.toast{display:none!important}body{background:#fff}.main{padding:0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div><h1>領　収　書</h1><small>RECEIPT MAKER</small></div>
+    <button id="btn-print">🖨 印刷・PDF</button>
+  </div>
+  <div class="main" id="main"></div>
+  <div class="tabbar">
+    <button class="tab on" data-tab="edit"><span class="tab-icon">✏️</span>入力</button>
+    <button class="tab" data-tab="preview"><span class="tab-icon">👁️</span>プレビュー</button>
+    <button class="tab" data-tab="stores"><span class="tab-icon">🏪</span>店舗管理</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var PAPERS=[
+  {id:'a4',name:'A4',sub:'210×297mm',w:210,h:297},
+  {id:'b5',name:'B5',sub:'182×257mm',w:182,h:257},
+  {id:'a6',name:'A6',sub:'105×148mm',w:105,h:148},
+  {id:'a4t',name:'A4三分割',sub:'99×210mm',w:99,h:210},
+  {id:'mk',name:'市販領収書',sub:'84×175mm',w:84,h:175}
+];
+var DB='rcpt_v1';
+var tab='edit', editStore=null;
+var receipt={date:getToday(),name:'',amount:'',note:'お品代として'};
+var stores=[], selId=null, paperId='a4';
+
+function getToday(){
+  var d=new Date();
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function pad(n){return n<10?'0'+n:String(n)}
+function fmtYen(v){var n=parseInt(v)||0;return n?n.toLocaleString('ja-JP'):'';}
+function toJP(s){if(!s)return'';var p=s.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日';}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function loadDB(){try{var v=localStorage.getItem(DB);return v?JSON.parse(v):[]}catch(e){return[];}}
+function saveDB(){try{localStorage.setItem(DB,JSON.stringify(stores));}catch(e){}}
+function getSel(){for(var i=0;i<stores.length;i++){if(stores[i].id===selId)return stores[i];}return null;}
+function getPaper(){for(var i=0;i<PAPERS.length;i++){if(PAPERS[i].id===paperId)return PAPERS[i];}return PAPERS[0];}
+
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
+  setTimeout(function(){t.style.display='none';},2000);
+}
+
+function render(){
+  var m=document.getElementById('main');
+  if(!m)return;
+  if(tab==='edit')m.innerHTML=renderEdit();
+  else if(tab==='preview')m.innerHTML=renderPreview();
+  else if(tab==='stores')m.innerHTML=editStore!==null?renderForm():renderStoreList();
+}
+
+function renderEdit(){
+  var s=getSel(), p=getPaper();
+  var h='';
+
+  h+='<div class="sec">▸ 使用する店舗</div>';
+  if(stores.length===0){
+    h+='<div class="empty-store"><p>店舗が登録されていません</p>'+
+      '<button class="btn-primary" onclick="goStores()">＋ 店舗を登録する</button></div>';
+  } else {
+    h+='<div class="chips">';
+    for(var i=0;i<stores.length;i++){
+      var st=stores[i];
+      h+='<button class="chip'+(selId===st.id?' on':'')+'" onclick="selStore(\''+st.id+'\')">'+esc(st.name)+'</button>';
+    }
+    h+='</div>';
+    if(s){
+      h+='<div class="store-sel"><div>'+
+        '<div class="store-name">'+esc(s.name)+'</div>'+
+        '<div class="store-sub">'+(s.addr?esc(s.addr)+'<br>':'')+(s.tel?'TEL: '+esc(s.tel):'')+'</div>'+
+        '</div><button class="btn-sm" onclick="editStoreById(\''+s.id+'\')">編集</button></div>';
+    }
+  }
+
+  h+='<div class="sec">▸ 領収書情報</div><div class="card">';
+  h+='<div class="fld"><label>日付</label><input type="date" id="f-date" value="'+esc(receipt.date)+'"></div>';
+  h+='<div class="fld"><label>宛先（御中）</label><input type="text" id="f-name" value="'+esc(receipt.name)+'" placeholder="例：株式会社〇〇"></div>';
+  h+='<div class="fld"><label>金額（円）</label><input type="tel" id="f-amt" value="'+esc(receipt.amount)+'" placeholder="10000">'+
+    '<div class="amt-hint" id="amt-hint">'+(receipt.amount?'¥'+fmtYen(receipt.amount)+' 円（税込）':'')+'</div></div>';
+  h+='<div class="fld"><label>但し書き</label><input type="text" id="f-note" value="'+esc(receipt.note)+'" placeholder="お品代として"></div>';
+  h+='</div>';
+
+  h+='<div class="sec">▸ 用紙サイズ</div><div class="card"><div class="papers">';
+  for(var j=0;j<PAPERS.length;j++){
+    var pp=PAPERS[j];
+    var iw=pp.h>pp.w?Math.round(20*pp.w/pp.h):20;
+    var ih=pp.h>pp.w?20:Math.round(20*pp.h/pp.w);
+    h+='<button class="paper'+(paperId===pp.id?' on':'')+'" onclick="selPaper(\''+pp.id+'\')">'+
+      '<div style="display:flex;align-items:center">'+
+      '<div class="paper-icon" style="width:'+iw+'px;height:'+ih+'px"></div>'+
+      '<div><div class="paper-name">'+esc(pp.name)+'</div><div class="paper-sub">'+pp.sub+'</div></div>'+
+      '</div>'+(paperId===pp.id?'<span class="paper-check">✓</span>':'')+
+      '</button>';
+  }
+  h+='</div></div>';
+  return h;
+}
+
+function renderPreview(){
+  var s=getSel(), p=getPaper();
+  var amt=receipt.amount?'¥ '+fmtYen(receipt.amount):'¥ ___________';
+  var sName=s?(s.seal||s.name):'印';
+  return '<p class="pv-hint">右上ボタンで印刷・PDF保存できます</p>'+
+    '<div class="pv-wrap">'+
+    '<div class="pv-title">領　収　書</div>'+
+    '<div class="pv-date">'+toJP(receipt.date)+'</div>'+
+    '<div class="pv-recip"><span class="pv-rname">'+esc(receipt.name||'　　　　　　　　')+'</span><span class="pv-rsuf">御中</span></div>'+
+    '<div class="pv-amt"><span style="font-size:10px;color:#777">金額</span><span class="pv-amtval">'+amt+'</span><span style="font-size:10px;color:#777">－（税込）</span></div>'+
+    '<div class="pv-note">但し、'+esc(receipt.note||'　　　　　　　　')+'</div>'+
+    '<hr class="pv-divider"><div class="pv-center">上記正に領収いたしました</div>'+
+    '<div class="pv-footer">'+
+    '<div class="pv-stamp"><span>収 入</span><span>印 紙</span></div>'+
+    '<div class="pv-storeright">'+
+    '<div class="pv-storetxt">'+
+    '<div class="pv-storename">'+(s?esc(s.name):'')+'</div>'+
+    (s&&s.addr?'<div>'+esc(s.addr)+'</div>':'')+
+    (s&&s.tel?'<div>TEL: '+esc(s.tel)+'</div>':'')+
+    '</div>'+makeSeal(sName,66)+
+    '</div></div></div>';
+}
+
+function renderStoreList(){
+  var h='<div class="sec">▸ 登録済み店舗</div>';
+  if(stores.length===0){
+    h+='<p style="text-align:center;color:#aaa;padding:30px 0;font-size:13px">まだ登録されていません</p>';
+  }
+  for(var i=0;i<stores.length;i++){
+    var s=stores[i];
+    h+='<div class="store-row">'+
+      '<div><div class="store-name">'+esc(s.name)+'</div>'+
+      '<div class="store-sub">'+(s.addr?esc(s.addr)+'<br>':'')+(s.tel?'TEL: '+esc(s.tel):'')+'</div></div>'+
+      '<button class="btn-sm" onclick="editStoreById(\''+s.id+'\')">編集</button></div>';
+  }
+  h+='<button class="btn-primary btn-block" style="margin-top:4px" onclick="newStore()">＋ 新しい店舗を登録</button>';
+  return h;
+}
+
+function renderForm(){
+  var es=editStore, isNew=!es.id;
+  return '<div class="form-hdr">'+
+    '<button class="btn-back" onclick="cancelForm()">←</button>'+
+    '<span class="form-title">'+(isNew?'新規店舗を登録':'店舗情報を編集')+'</span></div>'+
+    '<div class="card">'+
+    '<div class="fld"><label>店名 / 会社名 *</label><input type="text" id="es-name" value="'+esc(es.name||'')+'" placeholder="例：創一路"></div>'+
+    '<div class="fld"><label>住所</label><input type="text" id="es-addr" value="'+esc(es.addr||'')+'" placeholder="例：宮城県仙台市〇〇"></div>'+
+    '<div class="fld"><label>電話番号</label><input type="tel" id="es-tel" value="'+esc(es.tel||'')+'" placeholder="例：022-000-0000"></div>'+
+    '<div class="fld"><label>押印テキスト（空欄時は店名）</label><input type="text" id="es-seal" value="'+esc(es.seal||'')+'" placeholder="例：創一路"></div>'+
+    '</div>'+
+    '<button class="btn-save" onclick="saveStore()">保存する</button>'+
+    (!isNew?'<button class="btn-del" onclick="delStore()">この店舗を削除</button>':'');
+}
+
+function makeSeal(name,sz){
+  sz=sz||66;
+  var raw=String(name||'印').slice(0,8);
+  var len=raw.length;
+  var lines=len<=4?[raw]:[raw.slice(0,Math.ceil(len/2)),raw.slice(Math.ceil(len/2))];
+  var fs=len<=3?14:len===4?12:len<=6?10:9;
+  var lh=fs+5;
+  var cx=sz/2,cy=sz/2,ro=sz/2-2,ri=sz/2-8;
+  var startY=cy-(lines.length*lh)/2+lh/2;
+  var texts='';
+  for(var i=0;i<lines.length;i++){
+    texts+='<text x="'+cx+'" y="'+(startY+i*lh)+'" text-anchor="middle" dominant-baseline="middle" fill="#c0392b" font-size="'+fs+'" font-family="serif" font-weight="bold">'+esc(lines[i])+'</text>';
+  }
+  return '<svg width="'+sz+'" height="'+sz+'" viewBox="0 0 '+sz+' '+sz+'" style="flex-shrink:0">'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+ro+'" fill="none" stroke="#c0392b" stroke-width="2.2"/>'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+ri+'" fill="none" stroke="#c0392b" stroke-width="1"/>'+
+    '<line x1="'+(sz*.13)+'" y1="'+cy+'" x2="'+(sz*.87)+'" y2="'+cy+'" stroke="#c0392b" stroke-width="0.8" opacity="0.4"/>'+
+    texts+'</svg>';
+}
+
+/* ── Actions ── */
+function selStore(id){saveInputs();selId=id;render();}
+function selPaper(id){saveInputs();paperId=id;render();}
+function goStores(){saveInputs();tab='stores';updateTabs();render();}
+function editStoreById(id){
+  saveInputs();
+  for(var i=0;i<stores.length;i++){if(stores[i].id===id){editStore=JSON.parse(JSON.stringify(stores[i]));break;}}
+  tab='stores';updateTabs();render();
+}
+function newStore(){editStore={name:'',addr:'',tel:'',seal:''};render();}
+function cancelForm(){editStore=null;render();}
+function saveStore(){
+  var name=document.getElementById('es-name').value.trim();
+  if(!name){alert('店名を入力してください');return;}
+  var addr=document.getElementById('es-addr').value.trim();
+  var tel=document.getElementById('es-tel').value.trim();
+  var seal=document.getElementById('es-seal').value.trim();
+  if(editStore.id){
+    for(var i=0;i<stores.length;i++){
+      if(stores[i].id===editStore.id){stores[i]={id:editStore.id,name:name,addr:addr,tel:tel,seal:seal};break;}
+    }
+  } else {
+    var ns={id:uid(),name:name,addr:addr,tel:tel,seal:seal};
+    stores.push(ns);selId=ns.id;
+  }
+  saveDB();editStore=null;toast('✓ 保存しました');render();
+}
+function delStore(){
+  if(!confirm('「'+editStore.name+'」を削除しますか？'))return;
+  stores=stores.filter(function(s){return s.id!==editStore.id;});
+  if(selId===editStore.id)selId=stores.length?stores[0].id:null;
+  saveDB();editStore=null;toast('削除しました');render();
+}
+
+function saveInputs(){
+  var d=document.getElementById('f-date');
+  var n=document.getElementById('f-name');
+  var a=document.getElementById('f-amt');
+  var no=document.getElementById('f-note');
+  if(d)receipt.date=d.value;
+  if(n)receipt.name=n.value;
+  if(a)receipt.amount=a.value.replace(/[^0-9]/g,'');
+  if(no)receipt.note=no.value;
+}
+
+function updateTabs(){
+  var tabs=document.querySelectorAll('.tab');
+  for(var i=0;i<tabs.length;i++){
+    tabs[i].className='tab'+(tabs[i].dataset.tab===tab?' on':'');
+  }
+}
+
+/* ── Event listeners ── */
+document.querySelector('.tabbar').addEventListener('click',function(e){
+  var btn=e.target.closest('.tab');
+  if(!btn)return;
+  saveInputs();
+  tab=btn.dataset.tab;
+  editStore=null;
+  updateTabs();
+  render();
+});
+
+document.getElementById('main').addEventListener('input',function(e){
+  var id=e.target.id;
+  if(id==='f-date')receipt.date=e.target.value;
+  if(id==='f-name')receipt.name=e.target.value;
+  if(id==='f-amt'){
+    receipt.amount=e.target.value.replace(/[^0-9]/g,'');
+    e.target.value=receipt.amount;
+    var h=document.getElementById('amt-hint');
+    if(h)h.textContent=receipt.amount?'¥'+fmtYen(receipt.amount)+' 円（税込）':'';
+  }
+  if(id==='f-note')receipt.note=e.target.value;
+});
+
+document.getElementById('btn-print').addEventListener('click',function(){
+  saveInputs();
+  var s=getSel(), p=getPaper();
+  var amt=receipt.amount?'¥ '+fmtYen(receipt.amount):'¥ ___________';
+  var sName=s?(s.seal||s.name):'印';
+  var raw=String(sName).slice(0,8);
+  var len=raw.length;
+  var lines=len<=4?[raw]:[raw.slice(0,Math.ceil(len/2)),raw.slice(Math.ceil(len/2))];
+  var fs=len<=3?14:len===4?12:len<=6?10:9;
+  var lh=fs+5;
+  var cx=38,cy=38,startY=cy-(lines.length*lh)/2+lh/2;
+  var sg='';
+  for(var i=0;i<lines.length;i++){
+    sg+='<text x="38" y="'+(startY+i*lh)+'" text-anchor="middle" dominant-baseline="middle" fill="#c0392b" font-size="'+fs+'" font-family="serif" font-weight="bold">'+esc(lines[i])+'</text>';
+  }
+  var html='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>領収書</title>'+
+    '<style>@page{size:'+p.w+'mm '+p.h+'mm;margin:10mm}*{box-sizing:border-box;margin:0;padding:0}'+
+    'body{font-family:serif;width:'+p.w+'mm}'+
+    '.title{font-size:28px;font-weight:700;text-align:center;letter-spacing:.4em;margin-bottom:4px}'+
+    '.date{text-align:center;font-size:12px;color:#888;margin-bottom:20px}'+
+    '.recip{border-bottom:1.5px solid #000;padding-bottom:6px;margin-bottom:16px}'+
+    '.rn{font-size:17px;font-weight:600}.rs{font-size:12px;color:#555;margin-left:4px}'+
+    '.ab{background:#f0ece3;border:1px solid #c8b89a;padding:10px 14px;margin-bottom:16px;display:flex;align-items:baseline;gap:8px}'+
+    '.av{font-size:24px;font-weight:700;flex:1;text-align:right}'+
+    '.note{font-size:12px;color:#555;margin-bottom:18px}'+
+    '.div{border:none;border-top:1px solid #d8ccb8;margin-bottom:12px}'+
+    '.ct{text-align:center;font-size:11px;color:#aaa;letter-spacing:.1em;margin-bottom:16px}'+
+    '.ft{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}'+
+    '.stamp{width:64px;height:64px;border:1.5px dashed #bbb;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center}'+
+    '.sr{display:flex;align-items:flex-end;gap:10px;flex:1;justify-content:flex-end}'+
+    '.si{font-size:11px;color:#555;line-height:1.75;text-align:right}'+
+    '.sn{font-size:14px;font-weight:700;margin-bottom:2px}'+
+    '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'+
+    '</style></head><body>'+
+
+```
+'<div class="title">領　収　書</div>'+
+'<div class="date">'+toJP(receipt.date)+'</div>'+
+'<div class="recip"><span class="rn">'+esc(receipt.name||'　　　　　　　　')+'</span><span class="rs">御中</span></div>'+
+'<div class="ab"><span style="font-size:11px;color:#888">金額</span><span class="av">'+amt+'</span><span style="font-size:11px;color:#888">－（税込）</span></div>'+
+'<div class="note">但し、'+esc(receipt.note||'　　　　　　　　')+'</div>'+
+'<div class="div"></div><div class="ct">上記正に領収いたしました</div>'+
+'<div class="ft"><div class="stamp"><span style="font-size:9px;color:#bbb">収 入</span><span style="font-size:9px;color:#bbb">印 紙</span></div>'+
+'<div class="sr"><div class="si">'+
+'<div class="sn">'+(s?esc(s.name):'')+'</div>'+
+(s&&s.addr?'<div>'+esc(s.addr)+'</div>':'')+
+(s&&s.tel?'<div>TEL: '+esc(s.tel)+'</div>':'')+
+'</div><svg width="72" height="72" viewBox="0 0 76 76">'+
+'<circle cx="38" cy="38" r="35" fill="none" stroke="#c0392b" stroke-width="2.2"/>'+
+'<circle cx="38" cy="38" r="29" fill="none" stroke="#c0392b" stroke-width="1"/>'+
+'<line x1="10" y1="38" x2="66" y2="38" stroke="#c0392b" stroke-width="0.8" opacity="0.4"/>'+
+sg+'</svg></div></div>'+
+'<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>'+
+'</body></html>';
+```
+
+var w=window.open(’’,’_blank’);
+if(w){w.document.write(html);w.document.close();}
+});
+
+/* ── Init ── */
+stores=loadDB();
+if(stores.length)selId=stores[0].id;
+render();
+</script>
+
+</body>
+</html>
