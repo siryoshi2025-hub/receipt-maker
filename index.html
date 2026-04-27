@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>領収書メーカー</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Yu Gothic',sans-serif;background:#f0ece3;color:#1a1a1a}
+#app{max-width:500px;margin:0 auto;min-height:100vh}
+.hdr{background:#1a1a1a;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:9}
+.hdr h1{color:#f5f0e8;font-size:16px;font-weight:700;letter-spacing:.2em}
+.hdr small{color:#666;font-size:9px;display:block}
+#btn-print{background:#c0392b;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:500;cursor:pointer}
+.main{padding:16px 12px 100px}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;background:#fff;border-top:1px solid #e8e0d5;display:flex}
+.tab{flex:1;padding:12px 0 8px;border:none;background:none;cursor:pointer;font-size:10px;font-weight:500;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;color:#bbb}
+.tab.on{color:#6b4c2a}
+.ti{font-size:18px}
+.sec{font-size:10px;color:#a08060;font-weight:600;letter-spacing:.1em;margin:0 0 8px}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.fld{margin-bottom:14px}
+.fld:last-child{margin-bottom:0}
+.fld label{display:block;font-size:11px;color:#8a7a6a;margin-bottom:5px}
+.fld input{width:100%;padding:12px;border:1.5px solid #d8ccb8;border-radius:8px;background:#faf8f4;font-size:16px;font-family:inherit;-webkit-appearance:none;outline:none;color:#1a1a1a}
+.fld input:focus{border-color:#6b4c2a}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:8px 16px;border-radius:20px;border:2px solid #d8ccb8;background:#fff;color:#4a3828;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.chip.on{border-color:#6b4c2a;background:#6b4c2a;color:#fff}
+.papers{display:flex;flex-direction:column;gap:8px}
+.paper{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:2px solid transparent;border-radius:8px;cursor:pointer;background:#faf8f4;font-family:inherit;width:100%}
+.paper.on{background:#f5ede3;border-color:#6b4c2a}
+.store-row{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;justify-content:space-between;align-items:center}
+.sname{font-size:14px;font-weight:700;color:#1a1a1a}
+.ssub{font-size:12px;color:#888;margin-top:2px;line-height:1.6}
+.btn-sm{background:#f0ece3;border:none;border-radius:6px;padding:6px 10px;font-size:12px;color:#6b4c2a;cursor:pointer;font-family:inherit}
+.btn-big{width:100%;padding:14px;background:#6b4c2a;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px}
+.btn-del{width:100%;padding:12px;background:none;border:1.5px solid #e8bcbc;border-radius:12px;font-size:14px;color:#c0392b;cursor:pointer;font-family:inherit;margin-top:8px}
+.empty{background:#fff;border-radius:12px;padding:24px;text-align:center;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.empty p{font-size:13px;color:#aaa;margin-bottom:12px}
+.form-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.btn-bk{background:none;border:none;font-size:22px;cursor:pointer;color:#6b4c2a;padding:0;line-height:1}
+.ftitle{font-size:15px;font-weight:700}
+.pv{background:#faf8f4;border:1px solid #d8ccb8;border-radius:4px;padding:24px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.pv-t{font-size:24px;font-weight:700;text-align:center;letter-spacing:.4em;margin-bottom:4px}
+.pv-d{text-align:center;font-size:10px;color:#888;margin-bottom:16px}
+.pv-r{border-bottom:1.5px solid #1a1a1a;padding-bottom:5px;margin-bottom:12px}
+.pv-rn{font-size:16px;font-weight:600}
+.pv-rs{font-size:11px;color:#555;margin-left:4px}
+.pv-a{background:#f0ece3;border:1px solid #c8b89a;border-radius:3px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:baseline;gap:6px}
+.pv-av{font-size:20px;font-weight:700;flex:1;text-align:right}
+.pv-n{font-size:12px;color:#555;margin-bottom:14px}
+.pv-hr{border:none;border-top:1px solid #d8ccb8;margin-bottom:10px}
+.pv-c{text-align:center;font-size:10px;color:#aaa;margin-bottom:14px}
+.pv-f{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.pv-st{width:54px;height:54px;border:1.5px dashed #ccc;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;color:#ccc;line-height:1.8}
+.pv-sr{display:flex;align-items:flex-end;gap:8px;flex:1;justify-content:flex-end}
+.pv-si{text-align:right;font-size:11px;color:#444;line-height:1.8}
+.pv-sn{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:2px}
+.pv-hint{font-size:11px;color:#a08060;text-align:center;margin-bottom:12px}
+.amt-hint{font-size:11px;color:#8a7a6a;text-align:right;margin-top:3px;min-height:16px}
+.store-sel{background:#fff;border-radius:12px;padding:11px 14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;justify-content:space-between;align-items:center}
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;display:none;white-space:nowrap}
+@media print{.hdr,.tabbar,.toast{display:none!important}body{background:#fff}.main{padding:0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div><h1>&#9;&#9;&#9;&#9;</h1><small>RECEIPT MAKER</small></div>
+    <button id="btn-print">&#128424; &#21360;&#21105;&#12539;PDF</button>
+  </div>
+  <div class="main" id="main"></div>
+  <div class="tabbar">
+    <button class="tab on" id="t-edit"><span class="ti">&#9999;&#65039;</span>&#20837;&#21147;</button>
+    <button class="tab" id="t-preview"><span class="ti">&#128065;&#65039;</span>&#12503;&#12524;&#12499;&#12517;&#12540;</button>
+    <button class="tab" id="t-stores"><span class="ti">&#127978;</span>&#24215;&#33303;&#31649;&#29702;</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var PAPERS = [
+  {id:'a4',   name:'A4',        sub:'210x297mm', w:210, h:297},
+  {id:'b5',   name:'B5',        sub:'182x257mm', w:182, h:257},
+  {id:'a6',   name:'A6',        sub:'105x148mm', w:105, h:148},
+  {id:'a4t',  name:'A4\u4e09\u5206\u5272', sub:'99x210mm', w:99, h:210},
+  {id:'mk',   name:'\u5e02\u8ca9\u9818\u53ce\u66f8', sub:'84x175mm', w:84, h:175}
+];
+var DB = 'rcpt_v9';
+var currentTab = 'edit';
+var editMode = false;
+var editingStore = null;
+var receipt = {date:'', recip:'', amount:'', note:'\u304a\u54c1\u4ee3\u3068\u3057\u3066'};
+var stores = [];
+var selId = null;
+var paperId = 'a4';
+
+function init() {
+var d = new Date();
+var m = d.getMonth() + 1;
+var dd = d.getDate();
+receipt.date = d.getFullYear() + ‘-’ + (m < 10 ? ‘0’ + m : m) + ‘-’ + (dd < 10 ? ‘0’ + dd : dd);
+try {
+var v = localStorage.getItem(DB);
+stores = v ? JSON.parse(v) : [];
+} catch(e) { stores = []; }
+if (stores.length) selId = stores[0].id;
+document.getElementById(‘t-edit’).onclick = function() { switchTab(‘edit’); };
+document.getElementById(‘t-preview’).onclick = function() { switchTab(‘preview’); };
+document.getElementById(‘t-stores’).onclick = function() { switchTab(‘stores’); };
+document.getElementById(‘btn-print’).onclick = doPrint;
+render();
+}
+
+function switchTab(t) {
+saveInputs();
+currentTab = t;
+editMode = false;
+editingStore = null;
+var ids = [‘t-edit’,‘t-preview’,‘t-stores’];
+var tabs = [‘edit’,‘preview’,‘stores’];
+for (var i = 0; i < ids.length; i++) {
+var el = document.getElementById(ids[i]);
+if (el) el.className = ‘tab’ + (tabs[i] === t ? ’ on’ : ‘’);
+}
+render();
+}
+
+function saveInputs() {
+var d = document.getElementById(‘f-date’);
+var r = document.getElementById(‘f-recip’);
+var a = document.getElementById(‘f-amount’);
+var n = document.getElementById(‘f-note’);
+if (d) receipt.date = d.value;
+if (r) receipt.recip = r.value;
+if (a) receipt.amount = a.value.replace(/[^0-9]/g, ‘’);
+if (n) receipt.note = n.value;
+}
+
+function render() {
+var m = document.getElementById(‘main’);
+if (!m) return;
+if (currentTab === ‘edit’) m.innerHTML = buildEdit();
+else if (currentTab === ‘preview’) m.innerHTML = buildPreview();
+else if (currentTab === ‘stores’) m.innerHTML = editMode ? buildForm() : buildList();
+}
+
+function esc(s) {
+return String(s || ‘’).replace(/&/g,’&’).replace(/</g,’<’).replace(/>/g,’>’).replace(/”/g,’"’);
+}
+
+function fmtYen(v) { var n = parseInt(v) || 0; return n ? n.toLocaleString(‘ja-JP’) : ‘’; }
+
+function toJP(s) {
+if (!s) return ‘’;
+var p = s.split(’-’);
+return p[0] + ‘\u5e74’ + parseInt(p[1]) + ‘\u6708’ + parseInt(p[2]) + ‘\u65e5’;
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+
+function getSel() {
+for (var i = 0; i < stores.length; i++) { if (stores[i].id === selId) return stores[i]; }
+return null;
+}
+
+function getPaper() {
+for (var i = 0; i < PAPERS.length; i++) { if (PAPERS[i].id === paperId) return PAPERS[i]; }
+return PAPERS[0];
+}
+
+function saveDB() { try { localStorage.setItem(DB, JSON.stringify(stores)); } catch(e) {} }
+
+function showToast(msg) {
+var t = document.getElementById(‘toast’);
+if (!t) return;
+t.textContent = msg;
+t.style.display = ‘block’;
+setTimeout(function() { t.style.display = ‘none’; }, 2000);
+}
+
+function buildEdit() {
+var sel = getSel();
+var out = ‘’;
+out += ‘<div class="sec">\u25b8 \u4f7f\u7528\u3059\u308b\u5e97\u8217</div>’;
+if (stores.length === 0) {
+out += ‘<div class="empty"><p>\u5e97\u8217\u304c\u767b\u9332\u3055\u308c\u3066\u3044\u307e\u305b\u3093</p>’;
+out += ‘<button class="btn-big" style="width:auto;padding:10px 20px" onclick="goStores()">\uff0b \u5e97\u8217\u3092\u767b\u9332\u3059\u308b</button></div>’;
+} else {
+out += ‘<div class="chips">’;
+for (var i = 0; i < stores.length; i++) {
+var s = stores[i];
+out += ‘<button class="chip' + (selId === s.id ? ' on' : '') + '" onclick="pickStore(\'' + s.id + '\')">’ + esc(s.name) + ‘</button>’;
+}
+out += ‘</div>’;
+if (sel) {
+out += ‘<div class="store-sel"><div>’;
+out += ‘<div class="sname">’ + esc(sel.name) + ‘</div>’;
+out += ‘<div class="ssub">’ + (sel.addr ? esc(sel.addr) + ‘<br>’ : ‘’) + (sel.tel ? ‘TEL:’ + esc(sel.tel) : ‘’) + ‘</div>’;
+out += ‘</div><button class="btn-sm" onclick="editById(\'' + sel.id + '\')">\u7de8\u96c6</button></div>’;
+}
+}
+out += ‘<div class="sec">\u25b8 \u9818\u53ce\u66f8\u60c5\u5831</div><div class="card">’;
+out += ‘<div class="fld"><label>\u65e5\u4ed8</label><input type="date" id="f-date" value="' + esc(receipt.date) + '"></div>’;
+out += ‘<div class="fld"><label>\u5b9b\u5148\uff08\u5fa1\u4e2d\uff09</label><input type="text" id="f-recip" value="' + esc(receipt.recip) + '" placeholder="\u4f8b\uff1a\u682a\u5f0f\u4f1a\u793e\u3007\u3007"></div>’;
+out += ‘<div class="fld"><label>\u91d1\u984d\uff08\u5186\uff09</label>’;
+out += ‘<input type="tel" id="f-amount" value="' + esc(receipt.amount) + '" placeholder="10000" oninput="onAmt(this)">’;
+out += ‘<div class="amt-hint" id="amt-hint">’ + (receipt.amount ? ‘\xa5’ + fmtYen(receipt.amount) + ’ \u5186\uff08\u7a0e\u8fbc\uff09’ : ‘’) + ‘</div></div>’;
+out += ‘<div class="fld"><label>\u4f46\u3057\u66f8\u304d</label><input type="text" id="f-note" value="' + esc(receipt.note) + '" placeholder="\u304a\u54c1\u4ee3\u3068\u3057\u3066"></div>’;
+out += ‘</div>’;
+out += ‘<div class="sec">\u25b8 \u7528\u7d19\u30b5\u30a4\u30ba</div><div class="card"><div class="papers">’;
+for (var j = 0; j < PAPERS.length; j++) {
+var pp = PAPERS[j];
+var iw = pp.h > pp.w ? Math.round(20 * pp.w / pp.h) : 20;
+var ih = pp.h > pp.w ? 20 : Math.round(20 * pp.h / pp.w);
+var bc = paperId === pp.id ? ‘#6b4c2a’ : ‘#ccc’;
+out += ‘<button class="paper' + (paperId === pp.id ? ' on' : '') + '" onclick="pickPaper(\'' + pp.id + '\')">’;
+out += ‘<div style="display:flex;align-items:center;gap:10px">’;
+out += ‘<div style="width:' + iw + 'px;height:' + ih + 'px;border:2px solid ' + bc + ';border-radius:2px;flex-shrink:0"></div>’;
+out += ‘<div><div style="font-size:14px;font-weight:600;color:#1a1a1a">’ + esc(pp.name) + ‘</div>’;
+out += ‘<div style="font-size:11px;color:#aaa">’ + pp.sub + ‘</div></div></div>’;
+if (paperId === pp.id) out += ‘<span style="font-size:12px;color:#6b4c2a;font-weight:600">\u2713</span>’;
+out += ‘</button>’;
+}
+out += ‘</div></div>’;
+return out;
+}
+
+function buildPreview() {
+var s = getSel();
+var amt = receipt.amount ? ’\xa5 ’ + fmtYen(receipt.amount) : ‘\xa5 ___________’;
+var sn = s ? (s.seal || s.name) : ‘\u5370’;
+var out = ‘<p class="pv-hint">\u53f3\u4e0a\u30dc\u30bf\u30f3\u3067\u5370\u5237\u30fbPDF\u4fdd\u5b58\u3067\u304d\u307e\u3059</p>’;
+out += ‘<div class="pv">’;
+out += ‘<div class="pv-t">\u9818\u3000\u53ce\u3000\u66f8</div>’;
+out += ‘<div class="pv-d">’ + toJP(receipt.date) + ‘</div>’;
+out += ‘<div class="pv-r"><span class="pv-rn">’ + esc(receipt.recip || ‘\u3000\u3000\u3000\u3000\u3000\u3000\u3000\u3000’) + ‘</span><span class="pv-rs">\u5fa1\u4e2d</span></div>’;
+out += ‘<div class="pv-a"><span style="font-size:10px;color:#777">\u91d1\u984d</span><span class="pv-av">’ + amt + ‘</span><span style="font-size:10px;color:#777">\uff0d\uff08\u7a0e\u8fbc\uff09</span></div>’;
+out += ‘<div class="pv-n">\u4f46\u3057\u3001’ + esc(receipt.note || ‘\u3000\u3000\u3000\u3000\u3000\u3000\u3000\u3000’) + ‘</div>’;
+out += ‘<hr class="pv-hr"><div class="pv-c">\u4e0a\u8a18\u6b63\u306b\u9818\u53ce\u3044\u305f\u3057\u307e\u3057\u305f</div>’;
+out += ‘<div class="pv-f">’;
+out += ‘<div class="pv-st"><span>\u53ce \u5165</span><span>\u5370 \u7d19</span></div>’;
+out += ‘<div class="pv-sr"><div class="pv-si">’;
+out += ‘<div class="pv-sn">’ + (s ? esc(s.name) : ‘’) + ‘</div>’;
+if (s && s.addr) out += ‘<div>’ + esc(s.addr) + ‘</div>’;
+if (s && s.tel) out += ‘<div>TEL:’ + esc(s.tel) + ‘</div>’;
+out += ‘</div>’ + makeSeal(sn, 66) + ‘</div></div></div>’;
+return out;
+}
+
+function buildList() {
+var out = ‘<div class="sec">\u25b8 \u767b\u9332\u6e08\u307f\u5e97\u8217</div>’;
+if (stores.length === 0) {
+out += ‘<p style="text-align:center;color:#aaa;padding:30px 0;font-size:13px">\u307e\u3060\u767b\u9332\u3055\u308c\u3066\u3044\u307e\u305b\u3093</p>’;
+}
+for (var i = 0; i < stores.length; i++) {
+var s = stores[i];
+out += ‘<div class="store-row"><div>’;
+out += ‘<div class="sname">’ + esc(s.name) + ‘</div>’;
+out += ‘<div class="ssub">’ + (s.addr ? esc(s.addr) + ‘<br>’ : ‘’) + (s.tel ? ‘TEL:’ + esc(s.tel) : ‘’) + ‘</div>’;
+out += ‘</div><button class="btn-sm" onclick="editById(\'' + s.id + '\')">\u7de8\u96c6</button></div>’;
+}
+out += ‘<button class="btn-big" onclick="newStore()">\uff0b \u65b0\u3057\u3044\u5e97\u8217\u3092\u767b\u9332</button>’;
+return out;
+}
+
+function buildForm() {
+var es = editingStore;
+var out = ‘<div class="form-hdr"><button class="btn-bk" onclick="cancelForm()">\u2190</button>’;
+out += ‘<span class="ftitle">’ + (es.id ? ‘\u5e97\u8217\u60c5\u5831\u3092\u7de8\u96c6’ : ‘\u65b0\u898f\u5e97\u8217\u3092\u767b\u9332’) + ‘</span></div>’;
+out += ‘<div class="card">’;
+out += ‘<div class="fld"><label>\u5e97\u540d / \u4f1a\u793e\u540d *</label><input type="text" id="es-name" value="' + esc(es.name || '') + '" placeholder="\u4f8b\uff1a\u5275\u4e00\u8def"></div>’;
+out += ‘<div class="fld"><label>\u4f4f\u6240</label><input type="text" id="es-addr" value="' + esc(es.addr || '') + '" placeholder="\u4f8b\uff1a\u5bae\u57ce\u770c\u4ed9\u53f0\u5e02\u3007\u3007"></div>’;
+out += ‘<div class="fld"><label>\u96fb\u8a71\u756a\u53f7</label><input type="tel" id="es-tel" value="' + esc(es.tel || '') + '" placeholder="\u4f8b\uff1a022-000-0000"></div>’;
+out += ‘<div class="fld"><label>\u62bc\u5370\u30c6\u30ad\u30b9\u30c8\uff08\u7a7a\u6b04\u6642\u306f\u5e97\u540d\uff09</label><input type="text" id="es-seal" value="' + esc(es.seal || '') + '" placeholder="\u4f8b\uff1a\u5275\u4e00\u8def"></div>’;
+out += ‘</div>’;
+out += ‘<button class="btn-big" onclick="saveStore()">\u4fdd\u5b58\u3059\u308b</button>’;
+if (es.id) out += ‘<button class="btn-del" onclick="delStore()">\u3053\u306e\u5e97\u8217\u3092\u524a\u9664</button>’;
+return out;
+}
+
+function makeSeal(name, sz) {
+var raw = String(name || ‘\u5370’).slice(0, 8);
+var len = raw.length;
+var lines = len <= 4 ? [raw] : [raw.slice(0, Math.ceil(len/2)), raw.slice(Math.ceil(len/2))];
+var fs = len <= 3 ? 14 : len === 4 ? 12 : len <= 6 ? 10 : 9;
+var lh = fs + 5;
+var cx = sz/2, cy = sz/2;
+var startY = cy - (lines.length * lh) / 2 + lh / 2;
+var texts = ‘’;
+for (var i = 0; i < lines.length; i++) {
+texts += ‘<text x="' + cx + '" y="' + (startY + i*lh) + '" text-anchor="middle" dominant-baseline="middle" fill="#c0392b" font-size="' + fs + '" font-family="serif" font-weight="bold">’ + esc(lines[i]) + ‘</text>’;
+}
+return ‘<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + ' ' + sz + '" style="flex-shrink:0">’
++ ‘<circle cx="' + cx + '" cy="' + cy + '" r="' + (sz/2-2) + '" fill="none" stroke="#c0392b" stroke-width="2.2"/>’
++ ‘<circle cx="' + cx + '" cy="' + cy + '" r="' + (sz/2-8) + '" fill="none" stroke="#c0392b" stroke-width="1"/>’
++ ‘<line x1="' + (sz*.13) + '" y1="' + cy + '" x2="' + (sz*.87) + '" y2="' + cy + '" stroke="#c0392b" stroke-width="0.8" opacity="0.4"/>’
++ texts + ‘</svg>’;
+}
+
+function onAmt(el) {
+el.value = el.value.replace(/[^0-9]/g, ‘’);
+receipt.amount = el.value;
+var h = document.getElementById(‘amt-hint’);
+if (h) h.textContent = el.value ? ‘\xa5’ + fmtYen(el.value) + ’ \u5186\uff08\u7a0e\u8fbc\uff09’ : ‘’;
+}
+
+function pickStore(id) { saveInputs(); selId = id; render(); }
+function pickPaper(id) { saveInputs(); paperId = id; render(); }
+function goStores() { saveInputs(); switchTab(‘stores’); }
+function editById(id) {
+saveInputs();
+for (var i = 0; i < stores.length; i++) {
+if (stores[i].id === id) { editingStore = JSON.parse(JSON.stringify(stores[i])); break; }
+}
+editMode = true;
+switchTab(‘stores’);
+}
+function newStore() { editingStore = {name:’’,addr:’’,tel:’’,seal:’’}; editMode = true; render(); }
+function cancelForm() { editMode = false; editingStore = null; render(); }
+
+function saveStore() {
+var name = document.getElementById(‘es-name’).value.trim();
+if (!name) { alert(’\u5e97\u540d\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044’); return; }
+var store = {
+name: name,
+addr: document.getElementById(‘es-addr’).value.trim(),
+tel:  document.getElementById(‘es-tel’).value.trim(),
+seal: document.getElementById(‘es-seal’).value.trim()
+};
+if (editingStore && editingStore.id) {
+store.id = editingStore.id;
+for (var i = 0; i < stores.length; i++) { if (stores[i].id === store.id) { stores[i] = store; break; } }
+} else {
+store.id = uid();
+stores.push(store);
+selId = store.id;
+}
+saveDB(); editMode = false; editingStore = null; showToast(’\u2713 \u4fdd\u5b58\u3057\u307e\u3057\u305f’); render();
+}
+
+function delStore() {
+if (!editingStore || !confirm(’\u524a\u9664\u3057\u307e\u3059\u304b\uff1f’)) return;
+stores = stores.filter(function(s) { return s.id !== editingStore.id; });
+if (selId === editingStore.id) selId = stores.length ? stores[0].id : null;
+saveDB(); editMode = false; editingStore = null; showToast(’\u524a\u9664\u3057\u307e\u3057\u305f’); render();
+}
+
+function doPrint() {
+saveInputs();
+var s = getSel(), p = getPaper();
+var amt = receipt.amount ? ‘\xa5 ’ + fmtYen(receipt.amount) : ‘\xa5 ___________’;
+var sn = s ? (s.seal || s.name) : ‘\u5370’;
+var raw = String(sn).slice(0, 8), len = raw.length;
+var lines = len <= 4 ? [raw] : [raw.slice(0, Math.ceil(len/2)), raw.slice(Math.ceil(len/2))];
+var fs = len <= 3 ? 14 : len === 4 ? 12 : len <= 6 ? 10 : 9;
+var lh = fs + 5, startY = 38 - (lines.length * lh) / 2 + lh / 2, sg = ‘’;
+for (var i = 0; i < lines.length; i++) {
+sg += ‘<text x="38" y="' + (startY + i*lh) + '" text-anchor="middle" dominant-baseline="middle" fill="#c0392b" font-size="' + fs + '" font-family="serif" font-weight="bold">’ + esc(lines[i]) + ‘</text>’;
+}
+var doc = ‘<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>\u9818\u53ce\u66f8</title>’
++ ‘<style>@page{size:’ + p.w + ‘mm ’ + p.h + ‘mm;margin:10mm}’
++ ‘*{box-sizing:border-box;margin:0;padding:0}body{font-family:serif;width:’ + p.w + ‘mm}’
++ ‘.T{font-size:28px;font-weight:700;text-align:center;letter-spacing:.4em;margin-bottom:4px}’
++ ‘.D{text-align:center;font-size:12px;color:#888;margin-bottom:20px}’
++ ‘.R{border-bottom:1.5px solid #000;padding-bottom:6px;margin-bottom:16px}’
++ ‘.RN{font-size:17px;font-weight:600}.RS{font-size:12px;color:#555;margin-left:4px}’
++ ‘.A{background:#f0ece3;border:1px solid #c8b89a;padding:10px 14px;margin-bottom:16px;display:flex;align-items:baseline;gap:8px}’
++ ‘.AV{font-size:24px;font-weight:700;flex:1;text-align:right}’
++ ‘.N{font-size:12px;color:#555;margin-bottom:18px}’
++ ‘.HR{border:none;border-top:1px solid #d8ccb8;margin-bottom:12px}’
++ ‘.C{text-align:center;font-size:11px;color:#aaa;letter-spacing:.1em;margin-bottom:16px}’
++ ‘.F{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}’
++ ‘.ST{width:60px;height:60px;border:1.5px dashed #bbb;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;color:#bbb;line-height:1.8}’
++ ‘.SR{display:flex;align-items:flex-end;gap:10px;flex:1;justify-content:flex-end}’
++ ‘.SI{text-align:right;font-size:11px;color:#555;line-height:1.75}’
++ ‘.SN{font-size:14px;font-weight:700;margin-bottom:2px}’
++ ‘@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}’
++ ‘</style></head><body>’
++ ‘<div class="T">\u9818\u3000\u53ce\u3000\u66f8</div>’
++ ‘<div class="D">’ + toJP(receipt.date) + ‘</div>’
++ ‘<div class="R"><span class="RN">’ + esc(receipt.recip || ‘\u3000\u3000\u3000\u3000\u3000\u3000\u3000\u3000’) + ‘</span><span class="RS">\u5fa1\u4e2d</span></div>’
++ ‘<div class="A"><span style="font-size:11px;color:#888">\u91d1\u984d</span><span class="AV">’ + amt + ‘</span><span style="font-size:11px;color:#888">\uff0d\uff08\u7a0e\u8fbc\uff09</span></div>’
++ ‘<div class="N">\u4f46\u3057\u3001’ + esc(receipt.note || ‘\u3000\u3000\u3000\u3000\u3000\u3000\u3000\u3000’) + ‘</div>’
++ ‘<div class="HR"></div>’
++ ‘<div class="C">\u4e0a\u8a18\u6b63\u306b\u9818\u53ce\u3044\u305f\u3057\u307e\u3057\u305f</div>’
++ ‘<div class="F"><div class="ST"><span>\u53ce \u5165</span><span>\u5370 \u7d19</span></div>’
++ ‘<div class="SR"><div class="SI">’
++ ‘<div class="SN">’ + (s ? esc(s.name) : ‘’) + ‘</div>’
++ (s && s.addr ? ‘<div>’ + esc(s.addr) + ‘</div>’ : ‘’)
++ (s && s.tel ? ‘<div>TEL:’ + esc(s.tel) + ‘</div>’ : ‘’)
++ ‘</div><svg width="72" height="72" viewBox="0 0 76 76">’
++ ‘<circle cx="38" cy="38" r="35" fill="none" stroke="#c0392b" stroke-width="2.2"/>’
++ ‘<circle cx="38" cy="38" r="29" fill="none" stroke="#c0392b" stroke-width="1"/>’
++ ‘<line x1="10" y1="38" x2="66" y2="38" stroke="#c0392b" stroke-width="0.8" opacity="0.4"/>’
++ sg + ‘</svg></div></div>’
++ ‘<scr’ + ‘ipt>window.onload=function(){setTimeout(function(){window.print();},400);}</scr’ + ‘ipt>’
++ ‘</body></html>’;
+var w = window.open(’’, ‘_blank’);
+if (w) { w.document.write(doc); w.document.close(); }
+}
+
+init();
+</script>
+
+</body>
+</html>
